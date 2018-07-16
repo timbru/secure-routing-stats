@@ -102,7 +102,8 @@ impl IpRange {
         // Upper bound is then derived by keeping all the bits in common from
         // min value, and setting the remainder to 1s. This has to match the
         // value for self.max.value
-        let upper_bound = lower_bound | (2u128.pow(128-lead_in_common) - 1);
+        let ones = if lead_in_common == 128 { 0u128 } else { ::std::u128::MAX >> lead_in_common };
+        let upper_bound = lower_bound | ones;
 
         return self.min.value == lower_bound && self.max.value == upper_bound;
     }
