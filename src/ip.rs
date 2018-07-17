@@ -113,7 +113,7 @@ impl FromStr for IpRange {
         let ip_values: Vec<&str> = s.split('-').collect();
 
         if ip_values.iter().count() != 2 {
-            return Err(IpRangeError::ParseError("Expected min-max".to_string()));
+            return Err(IpRangeError::MustUseDashNotation);
         }
 
         let min = IpAddress::from_str(ip_values[0])?;
@@ -146,15 +146,22 @@ impl From<ParseIntError> for IpAddressError {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum IpRangeError {
+
+    #[fail(display="Minimum value exceeds maximum value")]
     MinExceedsMax,
-    ParseError(String)
+
+    #[fail(display="Expected two IP addresses separated by '-' and no whitespace")]
+    MustUseDashNotation,
+
+    #[fail(display="Contains invalid IP address: {}", _0)]
+    ContainsInvalidIpAddress(IpAddressError)
 }
 
 impl From<IpAddressError> for IpRangeError {
-    fn from(iae: IpAddressError) -> IpRangeError {
-        IpRangeError::ParseError(iae.to_string())
+    fn from(e: IpAddressError) -> IpRangeError {
+        IpRangeError::ContainsInvalidIpAddress(e)
     }
 }
 
