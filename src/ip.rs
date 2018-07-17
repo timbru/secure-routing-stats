@@ -1,5 +1,5 @@
 use std::num::ParseIntError;
-use core::fmt;
+use std::fmt;
 
 // Idea inspired by the IP implementation in Golang
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
