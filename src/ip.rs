@@ -79,19 +79,6 @@ impl IpRange {
         }
     }
 
-    pub fn from_string(str: &str) -> Result<Self, IpRangeError> {
-        let ip_values: Vec<&str> = str.split('-').collect();
-
-        if ip_values.iter().count() != 2 {
-            return Err(IpRangeError::ParseError("Expected min-max".to_string()));
-        }
-
-        let min = IpAddress::from_str(ip_values[0])?;
-        let max = IpAddress::from_str(ip_values[1])?;
-        let range = IpRange::create(min, max)?;
-        Ok(range)
-    }
-
     pub fn is_prefix(&self) -> bool {
 
         // The following code is inspired by the RIPE NCC ip-resource java library
@@ -112,6 +99,24 @@ impl IpRange {
         let upper_bound = lower_bound | (1u128 << (128 - lead_in_common)) - 1;
 
         return self.min.value == lower_bound && self.max.value == upper_bound;
+    }
+}
+
+impl FromStr for IpRange {
+
+    type Err = IpRangeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let ip_values: Vec<&str> = s.split('-').collect();
+
+        if ip_values.iter().count() != 2 {
+            return Err(IpRangeError::ParseError("Expected min-max".to_string()));
+        }
+
+        let min = IpAddress::from_str(ip_values[0])?;
+        let max = IpAddress::from_str(ip_values[1])?;
+        let range = IpRange::create(min, max)?;
+        Ok(range)
     }
 }
 
@@ -186,19 +191,19 @@ mod tests {
 
     #[test]
     fn test_range_is_prefix() {
-        assert!(IpRange::from_string("10.0.0.0-10.0.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_string("10.0.0.0-10.1.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_string("0.0.0.0-1.255.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_string("2.0.0.0-3.255.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_string("0.0.0.0-3.255.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_string("4.0.0.0-5.255.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_string("4.0.0.0-4.0.0.0").unwrap().is_prefix());
-        assert!(! IpRange::from_string("0.0.0.255-0.0.1.255").unwrap().is_prefix());
-        assert!(! IpRange::from_string("2.0.0.0-5.255.255.255").unwrap().is_prefix());
-        assert!(! IpRange::from_string("0.0.0.0-2.255.255.255").unwrap().is_prefix());
-        assert!(! IpRange::from_string("10.0.0.0-10.0.255.254").unwrap().is_prefix());
-        assert!(! IpRange::from_string("10.0.0.0-10.0.254.255").unwrap().is_prefix());
-        assert!(! IpRange::from_string("0.0.0.128-0.0.1.127").unwrap().is_prefix());
+        assert!(IpRange::from_str("10.0.0.0-10.0.255.255").unwrap().is_prefix());
+        assert!(IpRange::from_str("10.0.0.0-10.1.255.255").unwrap().is_prefix());
+        assert!(IpRange::from_str("0.0.0.0-1.255.255.255").unwrap().is_prefix());
+        assert!(IpRange::from_str("2.0.0.0-3.255.255.255").unwrap().is_prefix());
+        assert!(IpRange::from_str("0.0.0.0-3.255.255.255").unwrap().is_prefix());
+        assert!(IpRange::from_str("4.0.0.0-5.255.255.255").unwrap().is_prefix());
+        assert!(IpRange::from_str("4.0.0.0-4.0.0.0").unwrap().is_prefix());
+        assert!(! IpRange::from_str("0.0.0.255-0.0.1.255").unwrap().is_prefix());
+        assert!(! IpRange::from_str("2.0.0.0-5.255.255.255").unwrap().is_prefix());
+        assert!(! IpRange::from_str("0.0.0.0-2.255.255.255").unwrap().is_prefix());
+        assert!(! IpRange::from_str("10.0.0.0-10.0.255.254").unwrap().is_prefix());
+        assert!(! IpRange::from_str("10.0.0.0-10.0.254.255").unwrap().is_prefix());
+        assert!(! IpRange::from_str("0.0.0.128-0.0.1.127").unwrap().is_prefix());
     }
 
 
