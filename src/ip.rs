@@ -33,17 +33,21 @@ impl IpAddress {
     }
 
     fn parse_ipv4_address(s: &str) -> Result<Self, IpAddressError> {
-        let words: Vec<&str> = s.split('.').collect();
-        if words.iter().count() != 4 {
+
+        let mut result_value: u128 = 0;
+        let mut groups = 0;
+        for el in s.split('.') {
+            groups += 1;
+            let b_val = u8::from_str_radix(el, 10)?;
+            result_value = result_value << 8;
+            result_value += b_val as u128;
+        }
+
+        if groups != 4 {
             return Err(IpAddressError::ParseError("IPv4 needs four bytes".to_string()));
         }
-        let mut value: u128 = 0;
-        for w in words {
-            let b_val = u8::from_str_radix(w, 10)?;
-            value = value << 8;
-            value += b_val as u128;
-        }
-        return Ok(IpAddress::new(value))
+
+        Ok(IpAddress::new(result_value))
     }
 
 }
