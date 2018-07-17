@@ -1,5 +1,6 @@
 use std::num::ParseIntError;
 use std::fmt;
+use std::str::FromStr;
 
 // Idea inspired by the IP implementation in Golang
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
@@ -24,19 +25,15 @@ impl IpAddress {
         }
     }
 
-    pub fn from_string(str: &str) -> Result<Self, IpAddressError> {
-        if str.contains('.') {
-            IpAddress::parse_ipv4_address(str)
-        } else if str.contains(':') {
-            // As IPv6
-            return Err(IpAddressError::NotImplemented);
-        } else {
-            return Err(IpAddressError::ParseError("Not an IP Address".to_string()));
+    pub fn ip_address_family(&self) -> IpAddressFamily {
+        match self.value & 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000 == IPV4_IN_IPV6 {
+            true => { IpAddressFamily::Ipv4 }
+            false => { IpAddressFamily::Ipv6 }
         }
     }
 
-    fn parse_ipv4_address(str: &str) -> Result<Self, IpAddressError> {
-        let words: Vec<&str> = str.split('.').collect();
+    fn parse_ipv4_address(s: &str) -> Result<Self, IpAddressError> {
+        let words: Vec<&str> = s.split('.').collect();
         if words.iter().count() != 4 {
             return Err(IpAddressError::ParseError("IPv4 needs four bytes".to_string()));
         }
@@ -49,10 +46,20 @@ impl IpAddress {
         return Ok(IpAddress::new(value))
     }
 
-    pub fn ip_address_family(&self) -> IpAddressFamily {
-        match self.value & 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000 == IPV4_IN_IPV6 {
-            true => { IpAddressFamily::Ipv4 }
-            false => { IpAddressFamily::Ipv6 }
+}
+
+impl FromStr for IpAddress {
+
+    type Err = IpAddressError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.contains('.') {
+            IpAddress::parse_ipv4_address(s)
+        } else if s.contains(':') {
+            // As IPv6
+            return Err(IpAddressError::NotImplemented);
+        } else {
+            return Err(IpAddressError::ParseError("Not an IP Address".to_string()));
         }
     }
 }
@@ -79,8 +86,8 @@ impl IpRange {
             return Err(IpRangeError::ParseError("Expected min-max".to_string()));
         }
 
-        let min = IpAddress::from_string(ip_values[0])?;
-        let max = IpAddress::from_string(ip_values[1])?;
+        let min = IpAddress::from_str(ip_values[0])?;
+        let max = IpAddress::from_str(ip_values[1])?;
         let range = IpRange::create(min, max)?;
         Ok(range)
     }
@@ -150,23 +157,23 @@ mod tests {
 
     #[test]
     fn test_make_ipv4_from_string() {
-        assert_eq!(IPV4_IN_IPV6 | 0, IpAddress::from_string("0.0.0.0").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 255, IpAddress::from_string("0.0.0.255").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 256, IpAddress::from_string("0.0.1.0").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 65535, IpAddress::from_string("0.0.255.255").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 65536, IpAddress::from_string("0.1.0.0").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 16777216, IpAddress::from_string("1.0.0.0").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6 | 0, IpAddress::from_str("0.0.0.0").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6 | 255, IpAddress::from_str("0.0.0.255").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6 | 256, IpAddress::from_str("0.0.1.0").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6 | 65535, IpAddress::from_str("0.0.255.255").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6 | 65536, IpAddress::from_str("0.1.0.0").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6 | 16777216, IpAddress::from_str("1.0.0.0").unwrap().value);
 
-        assert!(IpAddress::from_string("yadiyada").is_err());
-        assert!(IpAddress::from_string("").is_err());
-        assert!(IpAddress::from_string("1.1").is_err());
+        assert!(IpAddress::from_str("yadiyada").is_err());
+        assert!(IpAddress::from_str("").is_err());
+        assert!(IpAddress::from_str("1.1").is_err());
     }
 
     #[test]
     fn test_is_ipv4() {
-        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_string("0.0.0.0").unwrap().ip_address_family());
-        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_string("10.0.0.0").unwrap().ip_address_family());
-        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_string("255.255.255.255").unwrap().ip_address_family());
+        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_str("0.0.0.0").unwrap().ip_address_family());
+        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_str("10.0.0.0").unwrap().ip_address_family());
+        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_str("255.255.255.255").unwrap().ip_address_family());
     }
 
     #[test]
