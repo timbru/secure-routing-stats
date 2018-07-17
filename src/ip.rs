@@ -44,7 +44,7 @@ impl IpAddress {
         }
 
         if groups != 4 {
-            return Err(IpAddressError::ParseError("IPv4 needs four bytes".to_string()));
+            return Err(IpAddressError::WrongByteCount);
         }
 
         Ok(IpAddress::new(result_value))
@@ -63,7 +63,7 @@ impl FromStr for IpAddress {
             // As IPv6
             return Err(IpAddressError::NotImplemented);
         } else {
-            return Err(IpAddressError::ParseError("Not an IP Address".to_string()));
+            return Err(IpAddressError::NotAnIpAddress);
         }
     }
 }
@@ -126,21 +126,25 @@ impl FromStr for IpRange {
 
 #[derive(Debug)]
 pub enum IpAddressError {
-    ParseError(String),
+    ParseError(ParseIntError),
+    WrongByteCount,
+    NotAnIpAddress,
     NotImplemented
 }
 
 impl From<ParseIntError> for IpAddressError {
     fn from(pie: ParseIntError) -> IpAddressError {
-        IpAddressError::ParseError(pie.to_string())
+        IpAddressError::ParseError(pie)
     }
 }
 
 impl fmt::Display for IpAddressError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            IpAddressError::ParseError(str) => { write!(f, "Parse error: {}", str) }
+            IpAddressError::ParseError(err) => { write!(f, "Parse error: {}", err) }
             IpAddressError::NotImplemented => { write!(f, "Not Implemented") }
+            IpAddressError::WrongByteCount => { write!(f, "Wrong number of bytes for IP address") }
+            IpAddressError::NotAnIpAddress => { write!(f, "Pattern doesn't match IPv4 or IPv6") }
         }
     }
 }
