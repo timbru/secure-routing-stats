@@ -10,6 +10,7 @@ pub enum IpAddressFamily {
     Ipv6
 }
 
+#[derive(Debug)]
 pub struct IpAddress {
     value: u128
 }
@@ -35,7 +36,7 @@ impl IpAddress {
 
         let mut result_value: u128 = 0;
         let mut groups = 0;
-        for (count, el) in s.split('.').enumerate() {
+        for el in s.split('.') {
             groups += 1;
             let b_val = u8::from_str_radix(el, 10)?;
             result_value = result_value << 8;
@@ -67,7 +68,7 @@ impl FromStr for IpAddress {
     }
 }
 
-
+#[derive(Debug)]
 pub struct IpRange {
     min: IpAddress,
     max: IpAddress,
@@ -123,6 +124,41 @@ impl FromStr for IpRange {
     }
 }
 
+#[derive(Debug)]
+pub struct IpNet {
+    base_address: IpAddress,
+    length: u8
+}
+
+impl FromStr for IpNet {
+
+    type Err = IpNetError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let ip_values: Vec<&str> = s.split('/').collect();
+
+        if ip_values.iter().count() != 2 {
+            return Err(IpNetError::InvalidSyntax);
+        }
+
+        let base_address= IpAddress::from_str(ip_values[0])?;
+        let length: u8 = u8::from_str_radix(ip_values[1], 10)?;
+
+        let full_length;
+        match base_address.ip_address_family() {
+            IpAddressFamily::Ipv4 => { full_length = length + 96; }
+            IpAddressFamily::Ipv6 => { full_length = length; }
+        };
+
+        if full_length > 128 || full_length < (128 - base_address.value.trailing_zeros() as u8) {
+            return Err(IpNetError::InvalidPrefixLength)
+        }
+
+        Ok(IpNet{ base_address, length })
+    }
+}
+
+
 #[derive(Debug, Fail)]
 pub enum IpAddressError {
 
@@ -165,6 +201,31 @@ impl From<IpAddressError> for IpRangeError {
     }
 }
 
+
+#[derive(Debug, Fail)]
+pub enum IpNetError {
+
+    #[fail(display="Invalid syntax. Expect: address/length")]
+    InvalidSyntax,
+
+    #[fail(display="Invalid prefix length")]
+    InvalidPrefixLength,
+
+    #[fail(display="Base address invalid: {}", _0)]
+    InvalidBaseAddress(IpAddressError)
+}
+
+impl From<IpAddressError> for IpNetError {
+    fn from(e: IpAddressError) -> IpNetError {
+        IpNetError::InvalidBaseAddress(e)
+    }
+}
+
+impl From<ParseIntError> for IpNetError {
+    fn from(_: ParseIntError) -> IpNetError {
+        IpNetError::InvalidPrefixLength
+    }
+}
 
 
 #[cfg(test)]
@@ -216,6 +277,15 @@ mod tests {
         assert!(! IpRange::from_str("10.0.0.0-10.0.255.254").unwrap().is_prefix());
         assert!(! IpRange::from_str("10.0.0.0-10.0.254.255").unwrap().is_prefix());
         assert!(! IpRange::from_str("0.0.0.128-0.0.1.127").unwrap().is_prefix());
+    }
+
+    #[test]
+    fn test_parse_prefic() {
+        assert!(IpNet::from_str("10.0.0.0/8").is_ok());
+        assert!(IpNet::from_str("0.0.0.0/0").is_ok());
+        assert!(IpNet::from_str("0.0.0.0/-1").is_err());
+        assert!(IpNet::from_str("10.0.0.0/6").is_err());
+        assert!(IpNet::from_str("10.0.0.0/33").is_err());
     }
 
 
