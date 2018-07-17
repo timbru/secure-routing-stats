@@ -1,7 +1,7 @@
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-// Idea inspired by the IP implementation in Golang
+// https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
 
 #[derive(Debug, PartialEq)]
@@ -35,7 +35,7 @@ impl IpAddress {
 
         let mut result_value: u128 = 0;
         let mut groups = 0;
-        for el in s.split('.') {
+        for (count, el) in s.split('.').enumerate() {
             groups += 1;
             let b_val = u8::from_str_radix(el, 10)?;
             result_value = result_value << 8;
