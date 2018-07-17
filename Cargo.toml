@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["Tim Bruijnzeels <tim@nlnetlabs.nl>"]
 
 [dependencies]
-clap = "2.23"
+clap    = "2.23"
+failure = "^0.1"

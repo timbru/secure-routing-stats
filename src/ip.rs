@@ -1,5 +1,4 @@
 use std::num::ParseIntError;
-use std::fmt;
 use std::str::FromStr;
 
 // Idea inspired by the IP implementation in Golang
@@ -124,30 +123,28 @@ impl FromStr for IpRange {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum IpAddressError {
+
+    #[fail(display="Parse error: {}", _0)]
     ParseError(ParseIntError),
+
+    #[fail(display="Wrong number of bytes for IP address")]
     WrongByteCount,
+
+    #[fail(display="Pattern doesn't match IPv4 or IPv6")]
     NotAnIpAddress,
+
+    #[fail(display="Not Implemented")]
     NotImplemented
 }
 
 impl From<ParseIntError> for IpAddressError {
-    fn from(pie: ParseIntError) -> IpAddressError {
-        IpAddressError::ParseError(pie)
+    fn from(e: ParseIntError) -> IpAddressError {
+        IpAddressError::ParseError(e)
     }
 }
 
-impl fmt::Display for IpAddressError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            IpAddressError::ParseError(err) => { write!(f, "Parse error: {}", err) }
-            IpAddressError::NotImplemented => { write!(f, "Not Implemented") }
-            IpAddressError::WrongByteCount => { write!(f, "Wrong number of bytes for IP address") }
-            IpAddressError::NotAnIpAddress => { write!(f, "Pattern doesn't match IPv4 or IPv6") }
-        }
-    }
-}
 
 #[derive(Debug)]
 pub enum IpRangeError {
