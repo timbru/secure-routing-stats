@@ -1,5 +1,6 @@
 use std::num::ParseIntError;
 use std::str::FromStr;
+use std::cmp;
 
 // https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
@@ -10,7 +11,7 @@ pub enum IpAddressFamily {
     Ipv6
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IpAddress {
     value: u128
 }
@@ -68,7 +69,7 @@ impl FromStr for IpAddress {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IpRange {
     min: IpAddress,
     max: IpAddress,
@@ -104,6 +105,11 @@ impl IpRange {
 
         return self.min.value == lower_bound && self.max.value == upper_bound;
     }
+
+    pub fn overlaps(&self, other: IpRange) -> bool {
+        (self.min.value >= other.min.value && self.min.value <= other.max.value) ||
+            (self.max.value >= other.min.value && self.max.value <= other.max.value)
+    }
 }
 
 impl FromStr for IpRange {
@@ -125,12 +131,12 @@ impl FromStr for IpRange {
 }
 
 #[derive(Debug)]
-pub struct IpNet {
+pub struct IpPrefix {
     base_address: IpAddress,
     length: u8
 }
 
-impl FromStr for IpNet {
+impl FromStr for IpPrefix {
 
     type Err = IpNetError;
 
@@ -154,9 +160,49 @@ impl FromStr for IpNet {
             return Err(IpNetError::InvalidPrefixLength)
         }
 
-        Ok(IpNet{ base_address, length })
+        Ok(IpPrefix { base_address, length })
     }
 }
+
+#[derive(Debug)]
+pub enum IpRangeOrPrefix {
+    IpRange(IpRange),
+    IpPrefix(IpPrefix)
+}
+
+#[derive(Debug)]
+pub struct IpResourceSet {
+    included: Vec<IpRange>
+}
+
+impl IpResourceSet {
+
+    pub fn new() -> Self {
+        let inc: Vec<IpRange> = vec![];
+        IpResourceSet{ included: inc }
+    }
+
+    pub fn add_ip_range(&mut self, ip_range: IpRange) {
+
+        let (overlapping, mut keep): (Vec<IpRange>, Vec<IpRange>) =
+            self.included.iter().partition(|ref i| i.overlaps(ip_range));
+
+        let mut min = ip_range.min.value;
+        let mut max = ip_range.max.value;
+        for e in overlapping.iter() {
+            min = cmp::min(min, e.min.value);
+            max = cmp::max(max, e.max.value);
+        }
+
+        let range_to_add = IpRange::create(IpAddress::new(min), IpAddress::new(max));
+
+        keep.extend(range_to_add);
+
+        self.included = keep;
+    }
+
+}
+
 
 
 #[derive(Debug, Fail)]
@@ -280,12 +326,51 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_prefic() {
-        assert!(IpNet::from_str("10.0.0.0/8").is_ok());
-        assert!(IpNet::from_str("0.0.0.0/0").is_ok());
-        assert!(IpNet::from_str("0.0.0.0/-1").is_err());
-        assert!(IpNet::from_str("10.0.0.0/6").is_err());
-        assert!(IpNet::from_str("10.0.0.0/33").is_err());
+    fn test_parse_prefix() {
+        assert!(IpPrefix::from_str("10.0.0.0/8").is_ok());
+        assert!(IpPrefix::from_str("0.0.0.0/0").is_ok());
+        assert!(IpPrefix::from_str("0.0.0.0/-1").is_err());
+        assert!(IpPrefix::from_str("10.0.0.0/6").is_err());
+        assert!(IpPrefix::from_str("10.0.0.0/33").is_err());
+    }
+
+    #[test]
+    fn test_ip_range_overlaps() {
+        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let overlapping_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
+        let overlapping_end = IpRange::from_str("10.0.0.255-10.1.0.0").unwrap();
+        let exact_overlap = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let more_specific = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+
+        assert!(range.overlaps(overlapping_start));
+        assert!(range.overlaps(overlapping_end));
+        assert!(range.overlaps(exact_overlap));
+        assert!(range.overlaps(more_specific));
+
+        let below = IpRange::from_str("1.0.0.0-9.255.255.255").unwrap();
+        let above = IpRange::from_str("10.0.1.0-19.255.255.255").unwrap();
+
+        assert!(! range.overlaps(below));
+        assert!(! range.overlaps(above));
+    }
+
+    #[test]
+    fn test_ip_resource_set_functions() {
+        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+
+        let mut set = IpResourceSet::new();
+        set.add_ip_range(range);
+
+        assert_eq!(set.included, vec![range]);
+
+        let overlapping_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
+        let expected_combined_range = IpRange::from_str("9.0.0.0-10.0.0.255").unwrap();
+        set.add_ip_range(overlapping_start);
+        assert_eq!(set.included, vec![expected_combined_range]);
+
+        let other_range = IpRange::from_str("192.168.0.0-192.168.0.1").unwrap();
+        set.add_ip_range(other_range);
+        assert_eq!(set.included, vec![expected_combined_range, other_range]);
     }
 
 
