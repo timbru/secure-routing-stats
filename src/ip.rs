@@ -1,3 +1,4 @@
+use std::fmt;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use std::cmp;
@@ -8,16 +9,36 @@ const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
 #[derive(Debug, PartialEq)]
 pub enum IpAddressFamily {
     Ipv4,
-    Ipv6
+    Ipv6,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct IpAddress {
     value: u128
 }
 
-impl IpAddress {
+impl fmt::Debug for IpAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
 
+impl fmt::Display for IpAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.ip_address_family() {
+            IpAddressFamily::Ipv4 => {
+                let b1 = (self.value & 0xff00_0000) >> 24;
+                let b2 = (self.value & 0x00ff_0000) >> 16;
+                let b3 = (self.value & 0x0000_ff00) >> 8;
+                let b4 = self.value & 0x0000_00ff;
+                write!(f, "{}.{}.{}.{}", b1, b2, b3, b4)
+            }
+            IpAddressFamily::Ipv6 => { write!(f, "{}", self.value)}
+        }
+    }
+}
+
+impl IpAddress {
     pub fn new(value: u128) -> Self {
         if value <= ::std::u32::MAX as u128 {
             IpAddress { value: IPV4_IN_IPV6 | value }
@@ -34,7 +55,6 @@ impl IpAddress {
     }
 
     fn parse_ipv4_address(s: &str) -> Result<Self, IpAddressError> {
-
         let mut result_value: u128 = 0;
         let mut groups = 0;
         for el in s.split('.') {
@@ -50,11 +70,9 @@ impl IpAddress {
 
         Ok(IpAddress::new(result_value))
     }
-
 }
 
 impl FromStr for IpAddress {
-
     type Err = IpAddressError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -69,18 +87,17 @@ impl FromStr for IpAddress {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct IpRange {
     min: IpAddress,
     max: IpAddress,
 }
 
 impl IpRange {
-
     pub fn create(min: IpAddress, max: IpAddress) -> Result<Self, IpRangeError> {
         match min.value > max.value {
-            true =>{ Err(IpRangeError::MinExceedsMax) }
-            false => { Ok(IpRange{min, max}) }
+            true => { Err(IpRangeError::MinExceedsMax) }
+            false => { Ok(IpRange { min, max }) }
         }
     }
 
@@ -106,14 +123,29 @@ impl IpRange {
         return self.min.value == lower_bound && self.max.value == upper_bound;
     }
 
-    pub fn overlaps(&self, other: IpRange) -> bool {
-        (self.min.value >= other.min.value && self.min.value <= other.max.value) ||
-            (self.max.value >= other.min.value && self.max.value <= other.max.value)
+    pub fn intersects(&self, other: IpRange) -> bool {
+        (self.min.value <= other.min.value && self.max.value >= other.min.value) ||
+            (self.min.value > other.min.value && self.min.value <= other.max.value)
+    }
+
+    pub fn contains(&self, other: IpRange) -> bool {
+        self.min.value <= other.min.value && self.max.value >= other.max.value
+    }
+}
+
+impl fmt::Debug for IpRange {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+impl fmt::Display for IpRange {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}-{}", self.min, self.max)
     }
 }
 
 impl FromStr for IpRange {
-
     type Err = IpRangeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -133,11 +165,10 @@ impl FromStr for IpRange {
 #[derive(Debug)]
 pub struct IpPrefix {
     base_address: IpAddress,
-    length: u8
+    length: u8,
 }
 
 impl FromStr for IpPrefix {
-
     type Err = IpNetError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -147,7 +178,7 @@ impl FromStr for IpPrefix {
             return Err(IpNetError::InvalidSyntax);
         }
 
-        let base_address= IpAddress::from_str(ip_values[0])?;
+        let base_address = IpAddress::from_str(ip_values[0])?;
         let length: u8 = u8::from_str_radix(ip_values[1], 10)?;
 
         let full_length;
@@ -157,7 +188,7 @@ impl FromStr for IpPrefix {
         };
 
         if full_length > 128 || full_length < (128 - base_address.value.trailing_zeros() as u8) {
-            return Err(IpNetError::InvalidPrefixLength)
+            return Err(IpNetError::InvalidPrefixLength);
         }
 
         Ok(IpPrefix { base_address, length })
@@ -167,7 +198,7 @@ impl FromStr for IpPrefix {
 #[derive(Debug)]
 pub enum IpRangeOrPrefix {
     IpRange(IpRange),
-    IpPrefix(IpPrefix)
+    IpPrefix(IpPrefix),
 }
 
 #[derive(Debug)]
@@ -176,20 +207,23 @@ pub struct IpResourceSet {
 }
 
 impl IpResourceSet {
-
     pub fn new() -> Self {
         let inc: Vec<IpRange> = vec![];
-        IpResourceSet{ included: inc }
+        IpResourceSet { included: inc }
+    }
+
+    // Returns the intersecting IpRanges as the left return value, and non-intersecting as the right.
+    fn partition_intersecting(&self, ip_range: IpRange) -> (Vec<IpRange>, Vec<IpRange>) {
+        self.included.iter().partition(|ref i| i.intersects(ip_range))
     }
 
     pub fn add_ip_range(&mut self, ip_range: IpRange) {
+        let (intersecting, mut keep) = self.partition_intersecting(ip_range);
 
-        let (overlapping, mut keep): (Vec<IpRange>, Vec<IpRange>) =
-            self.included.iter().partition(|ref i| i.overlaps(ip_range));
 
         let mut min = ip_range.min.value;
         let mut max = ip_range.max.value;
-        for e in overlapping.iter() {
+        for e in intersecting.iter() {
             min = cmp::min(min, e.min.value);
             max = cmp::max(max, e.max.value);
         }
@@ -201,24 +235,45 @@ impl IpResourceSet {
         self.included = keep;
     }
 
-}
+    pub fn remove_ip_range(&mut self, range_to_remove: IpRange) {
+        let (intersecting, mut keep) = self.partition_intersecting(range_to_remove);
 
+        for intersecting_range in intersecting.iter() {
+            if range_to_remove.max.value < intersecting_range.max.value {
+                // Something on the right should remain
+                keep.extend(
+                    IpRange::create(
+                        IpAddress::new(range_to_remove.max.value + 1),
+                        IpAddress::new(intersecting_range.max.value)));
+            }
+
+            if range_to_remove.min.value > intersecting_range.min.value {
+                // Something on the left should remain
+                keep.extend(
+                    IpRange::create(
+                        IpAddress::new(intersecting_range.min.value),
+                        IpAddress::new(range_to_remove.min.value - 1)));
+            }
+        }
+
+        self.included = keep;
+    }
+}
 
 
 #[derive(Debug, Fail)]
 pub enum IpAddressError {
-
-    #[fail(display="Parse error: {}", _0)]
+    #[fail(display = "Parse error: {}", _0)]
     ParseError(ParseIntError),
 
-    #[fail(display="Wrong number of bytes for IP address")]
+    #[fail(display = "Wrong number of bytes for IP address")]
     WrongByteCount,
 
-    #[fail(display="Pattern doesn't match IPv4 or IPv6")]
+    #[fail(display = "Pattern doesn't match IPv4 or IPv6")]
     NotAnIpAddress,
 
-    #[fail(display="Not Implemented")]
-    NotImplemented
+    #[fail(display = "Not Implemented")]
+    NotImplemented,
 }
 
 impl From<ParseIntError> for IpAddressError {
@@ -230,15 +285,14 @@ impl From<ParseIntError> for IpAddressError {
 
 #[derive(Debug, Fail)]
 pub enum IpRangeError {
-
-    #[fail(display="Minimum value exceeds maximum value")]
+    #[fail(display = "Minimum value exceeds maximum value")]
     MinExceedsMax,
 
-    #[fail(display="Expected two IP addresses separated by '-' and no whitespace")]
+    #[fail(display = "Expected two IP addresses separated by '-' and no whitespace")]
     MustUseDashNotation,
 
-    #[fail(display="Contains invalid IP address: {}", _0)]
-    ContainsInvalidIpAddress(IpAddressError)
+    #[fail(display = "Contains invalid IP address: {}", _0)]
+    ContainsInvalidIpAddress(IpAddressError),
 }
 
 impl From<IpAddressError> for IpRangeError {
@@ -250,15 +304,14 @@ impl From<IpAddressError> for IpRangeError {
 
 #[derive(Debug, Fail)]
 pub enum IpNetError {
-
-    #[fail(display="Invalid syntax. Expect: address/length")]
+    #[fail(display = "Invalid syntax. Expect: address/length")]
     InvalidSyntax,
 
-    #[fail(display="Invalid prefix length")]
+    #[fail(display = "Invalid prefix length")]
     InvalidPrefixLength,
 
-    #[fail(display="Base address invalid: {}", _0)]
-    InvalidBaseAddress(IpAddressError)
+    #[fail(display = "Base address invalid: {}", _0)]
+    InvalidBaseAddress(IpAddressError),
 }
 
 impl From<IpAddressError> for IpNetError {
@@ -276,7 +329,6 @@ impl From<ParseIntError> for IpNetError {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
@@ -317,12 +369,12 @@ mod tests {
         assert!(IpRange::from_str("0.0.0.0-3.255.255.255").unwrap().is_prefix());
         assert!(IpRange::from_str("4.0.0.0-5.255.255.255").unwrap().is_prefix());
         assert!(IpRange::from_str("4.0.0.0-4.0.0.0").unwrap().is_prefix());
-        assert!(! IpRange::from_str("0.0.0.255-0.0.1.255").unwrap().is_prefix());
-        assert!(! IpRange::from_str("2.0.0.0-5.255.255.255").unwrap().is_prefix());
-        assert!(! IpRange::from_str("0.0.0.0-2.255.255.255").unwrap().is_prefix());
-        assert!(! IpRange::from_str("10.0.0.0-10.0.255.254").unwrap().is_prefix());
-        assert!(! IpRange::from_str("10.0.0.0-10.0.254.255").unwrap().is_prefix());
-        assert!(! IpRange::from_str("0.0.0.128-0.0.1.127").unwrap().is_prefix());
+        assert!(!IpRange::from_str("0.0.0.255-0.0.1.255").unwrap().is_prefix());
+        assert!(!IpRange::from_str("2.0.0.0-5.255.255.255").unwrap().is_prefix());
+        assert!(!IpRange::from_str("0.0.0.0-2.255.255.255").unwrap().is_prefix());
+        assert!(!IpRange::from_str("10.0.0.0-10.0.255.254").unwrap().is_prefix());
+        assert!(!IpRange::from_str("10.0.0.0-10.0.254.255").unwrap().is_prefix());
+        assert!(!IpRange::from_str("0.0.0.128-0.0.1.127").unwrap().is_prefix());
     }
 
     #[test]
@@ -335,23 +387,23 @@ mod tests {
     }
 
     #[test]
-    fn test_ip_range_overlaps() {
+    fn test_ip_range_intersects() {
         let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
-        let overlapping_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
-        let overlapping_end = IpRange::from_str("10.0.0.255-10.1.0.0").unwrap();
+        let intersecting_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
+        let intersecting_end = IpRange::from_str("10.0.0.255-10.1.0.0").unwrap();
         let exact_overlap = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
         let more_specific = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
 
-        assert!(range.overlaps(overlapping_start));
-        assert!(range.overlaps(overlapping_end));
-        assert!(range.overlaps(exact_overlap));
-        assert!(range.overlaps(more_specific));
+        assert!(range.intersects(intersecting_start));
+        assert!(range.intersects(intersecting_end));
+        assert!(range.intersects(exact_overlap));
+        assert!(range.intersects(more_specific));
 
         let below = IpRange::from_str("1.0.0.0-9.255.255.255").unwrap();
         let above = IpRange::from_str("10.0.1.0-19.255.255.255").unwrap();
 
-        assert!(! range.overlaps(below));
-        assert!(! range.overlaps(above));
+        assert!(!range.intersects(below));
+        assert!(!range.intersects(above));
     }
 
     #[test]
@@ -363,9 +415,9 @@ mod tests {
 
         assert_eq!(set.included, vec![range]);
 
-        let overlapping_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
+        let intersecting_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
         let expected_combined_range = IpRange::from_str("9.0.0.0-10.0.0.255").unwrap();
-        set.add_ip_range(overlapping_start);
+        set.add_ip_range(intersecting_start);
         assert_eq!(set.included, vec![expected_combined_range]);
 
         let other_range = IpRange::from_str("192.168.0.0-192.168.0.1").unwrap();
@@ -373,6 +425,33 @@ mod tests {
         assert_eq!(set.included, vec![expected_combined_range, other_range]);
     }
 
+    #[test]
+    fn test_ip_resource_set_remove() {
+        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let mut set = IpResourceSet::new();
+        set.add_ip_range(range);
 
+        let intersecting_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
+        set.remove_ip_range(intersecting_start);
+        assert_eq!(set.included, vec![IpRange::from_str("10.0.0.1-10.0.0.255").unwrap()]);
+
+        let start_left_hand = IpRange::from_str("10.0.0.1-10.0.0.2").unwrap();
+        set.remove_ip_range(start_left_hand);
+        assert_eq!(set.included, vec![IpRange::from_str("10.0.0.3-10.0.0.255").unwrap()]);
+
+        let middle = IpRange::from_str("10.0.0.10-10.0.0.11").unwrap();
+        set.remove_ip_range(middle);
+        assert_eq!(set.included,
+                   vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap(),
+                        IpRange::from_str("10.0.0.3-10.0.0.9").unwrap()]);
+
+        let exact_match = IpRange::from_str("10.0.0.3-10.0.0.9").unwrap();
+        set.remove_ip_range(exact_match);
+        assert_eq!(set.included, vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap()]);
+
+        let encompassing = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        set.remove_ip_range(encompassing);
+        assert_eq!(set.included, vec![]);
+    }
 }
 
