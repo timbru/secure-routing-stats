@@ -2,9 +2,17 @@ use std::fmt;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use std::cmp;
+use std::net;
+use intervaltree::IntervalTree;
+use std::ops::Range;
+use std::collections::HashMap;
 
 // https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
+const IPV4_UNUSED: u128 = 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000;
+
+
+//------------ IpAddressFamily -----------------------------------------------
 
 #[derive(Debug, PartialEq)]
 pub enum IpAddressFamily {
@@ -12,63 +20,49 @@ pub enum IpAddressFamily {
     Ipv6,
 }
 
+
+//------------ IpAddress -----------------------------------------------------
+
 #[derive(Clone, Copy, PartialEq)]
 pub struct IpAddress {
     value: u128
 }
 
+impl IpAddress {
+    /// Use with extreme prejudice. New IPv4 numbers should be specified as
+    /// IPV4_IN_IPV6 | value
+    fn new(value: u128) -> Self {
+        IpAddress { value }
+    }
+
+    pub fn to_net_ipaddr(&self) -> net::IpAddr {
+        match self.ip_address_family() {
+            IpAddressFamily::Ipv4 => {
+                net::IpAddr::V4(net::Ipv4Addr::from(self.value as u32))
+            },
+            IpAddressFamily::Ipv6 => {
+                net::IpAddr::V6(net::Ipv6Addr::from(self.value))
+            }
+        }
+    }
+    pub fn ip_address_family(&self) -> IpAddressFamily {
+        if self.value & IPV4_UNUSED == IPV4_IN_IPV6 {
+            IpAddressFamily::Ipv4
+        } else {
+            IpAddressFamily::Ipv6
+        }
+    }
+}
+
 impl fmt::Debug for IpAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        self.to_net_ipaddr().fmt(f)
     }
 }
 
 impl fmt::Display for IpAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.ip_address_family() {
-            IpAddressFamily::Ipv4 => {
-                let b1 = (self.value & 0xff00_0000) >> 24;
-                let b2 = (self.value & 0x00ff_0000) >> 16;
-                let b3 = (self.value & 0x0000_ff00) >> 8;
-                let b4 = self.value & 0x0000_00ff;
-                write!(f, "{}.{}.{}.{}", b1, b2, b3, b4)
-            }
-            IpAddressFamily::Ipv6 => { write!(f, "{}", self.value)}
-        }
-    }
-}
-
-impl IpAddress {
-    pub fn new(value: u128) -> Self {
-        if value <= ::std::u32::MAX as u128 {
-            IpAddress { value: IPV4_IN_IPV6 | value }
-        } else {
-            IpAddress { value }
-        }
-    }
-
-    pub fn ip_address_family(&self) -> IpAddressFamily {
-        match self.value & 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000 == IPV4_IN_IPV6 {
-            true => { IpAddressFamily::Ipv4 }
-            false => { IpAddressFamily::Ipv6 }
-        }
-    }
-
-    fn parse_ipv4_address(s: &str) -> Result<Self, IpAddressError> {
-        let mut result_value: u128 = 0;
-        let mut groups = 0;
-        for el in s.split('.') {
-            groups += 1;
-            let b_val = u8::from_str_radix(el, 10)?;
-            result_value = result_value << 8;
-            result_value += b_val as u128;
-        }
-
-        if groups != 4 {
-            return Err(IpAddressError::WrongByteCount);
-        }
-
-        Ok(IpAddress::new(result_value))
+        self.to_net_ipaddr().fmt(f)
     }
 }
 
@@ -77,15 +71,29 @@ impl FromStr for IpAddress {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains('.') {
-            IpAddress::parse_ipv4_address(s)
+            let ipv4 = net::Ipv4Addr::from_str(s)?;
+            let mut value: u128 = 0;
+            for octet in &ipv4.octets() {
+                value = value << 8;
+                value += *octet as u128;
+            }
+            Ok(IpAddress { value: IPV4_IN_IPV6 | value })
         } else if s.contains(':') {
-            // As IPv6
-            return Err(IpAddressError::NotImplemented);
+            let ipv6 = net::Ipv6Addr::from_str(s)?;
+            let mut value = 0;
+            for octet in &ipv6.octets() {
+                value = value << 8;
+                value += *octet as u128;
+            }
+            Ok(IpAddress { value })
         } else {
             return Err(IpAddressError::NotAnIpAddress);
         }
     }
 }
+
+
+//------------ IpRange -------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct IpRange {
@@ -95,10 +103,17 @@ pub struct IpRange {
 
 impl IpRange {
     pub fn create(min: IpAddress, max: IpAddress) -> Result<Self, IpRangeError> {
-        match min.value > max.value {
-            true => { Err(IpRangeError::MinExceedsMax) }
-            false => { Ok(IpRange { min, max }) }
+        if min.value > max.value {
+            Err(IpRangeError::MinExceedsMax)
+        } else {
+            Ok(IpRange { min, max })
         }
+    }
+
+    pub fn from_min_and_number(min: IpAddress, number: u128) -> Result<Self, IpRangeError> {
+        let value = min.value + number - 1;
+        let max = IpAddress{ value };
+        Self::create(min, max)
     }
 
     pub fn is_prefix(&self) -> bool {
@@ -128,8 +143,16 @@ impl IpRange {
             (self.min.value > other.min.value && self.min.value <= other.max.value)
     }
 
-    pub fn contains(&self, other: IpRange) -> bool {
-        self.min.value <= other.min.value && self.max.value >= other.max.value
+    pub fn contains(&self, other: &Range<u128>) -> bool {
+        self.min.value <= other.start && self.max.value >= other.end
+    }
+
+    pub fn is_contained_by(&self, other: &Range<u128>) -> bool {
+        IpRange::from(other).contains(&self.to_range())
+    }
+
+    pub fn to_range(&self) -> std::ops::Range<u128> {
+        std::ops::Range { start: self.min.value, end: self.max.value }
     }
 }
 
@@ -161,6 +184,17 @@ impl FromStr for IpRange {
         Ok(range)
     }
 }
+
+impl From<&Range<u128>> for IpRange {
+    fn from(r: &Range<u128>) -> Self {
+        let min = IpAddress { value: r.start };
+        let max = IpAddress { value: r.end };
+        IpRange { min, max }
+    }
+}
+
+
+//------------ IpPrefix ------------------------------------------------------
 
 #[derive(Debug)]
 pub struct IpPrefix {
@@ -201,15 +235,16 @@ pub enum IpRangeOrPrefix {
     IpPrefix(IpPrefix),
 }
 
+//------------ IpResourceSet -------------------------------------------------
+
 #[derive(Debug)]
 pub struct IpResourceSet {
     included: Vec<IpRange>
 }
 
 impl IpResourceSet {
-    pub fn new() -> Self {
-        let inc: Vec<IpRange> = vec![];
-        IpResourceSet { included: inc }
+    pub fn empty() -> Self {
+        IpResourceSet { included: vec![] }
     }
 
     // Returns the intersecting IpRanges as the left return value, and non-intersecting as the right.
@@ -261,37 +296,95 @@ impl IpResourceSet {
 }
 
 
-#[derive(Debug, Fail)]
-pub enum IpAddressError {
-    #[fail(display = "Parse error: {}", _0)]
-    ParseError(ParseIntError),
+//------------ IpRangeTree --------------------------------------------------
 
-    #[fail(display = "Wrong number of bytes for IP address")]
-    WrongByteCount,
-
-    #[fail(display = "Pattern doesn't match IPv4 or IPv6")]
-    NotAnIpAddress,
-
-    #[fail(display = "Not Implemented")]
-    NotImplemented,
+pub struct IpRangeTree<V: ToIpRange> {
+    tree: IntervalTree<u128, Vec<V>>
 }
 
-impl From<ParseIntError> for IpAddressError {
-    fn from(e: ParseIntError) -> IpAddressError {
-        IpAddressError::ParseError(e)
+impl<V: ToIpRange> IpRangeTree<V> {
+    pub fn matching_or_less_specific(&self, range: &IpRange) -> Vec<&V> {
+        let mut res = vec![];
+        for mut v in self.tree.query(range.to_range()) {
+            if range.is_contained_by(&v.range) {
+                for e in &v.value {
+                    res.push(e)
+                }
+            }
+        }
+        res
+    }
+
+    pub fn matching_or_more_specific(&self, range: &IpRange) -> Vec<&V> {
+        let mut res = vec![];
+        for mut v in self.tree.query(range.to_range()) {
+            if range.contains(&v.range) {
+                for e in &v.value {
+                    res.push(e)
+                }
+            }
+        }
+        res
+    }
+}
+
+pub trait ToIpRange {
+    fn to_ip_range(&self) -> IpRange;
+}
+
+struct IpRangeTreeBuilder<V: ToIpRange> {
+    values: HashMap<Range<u128>, Vec<V>>
+}
+
+impl<V: ToIpRange> IpRangeTreeBuilder<V> {
+    pub fn empty() -> Self { IpRangeTreeBuilder { values: HashMap::new() }}
+
+    pub fn add(&mut self, value: V) {
+        let ip_range = value.to_ip_range().to_range();
+
+        if ! self.values.contains_key(&ip_range) {
+            self.values.insert(ip_range, vec![value]);
+        } else {
+            let values = self.values.get_mut(&ip_range).unwrap();
+            values.push(value);
+        }
+    }
+
+    pub fn build(self) -> IpRangeTree<V> {
+        let tree = IntervalTree::from(self.values.into_iter().collect());
+        IpRangeTree { tree }
     }
 }
 
 
-#[derive(Debug, Fail)]
+
+//------------ Errors -------------------------------------------------------
+
+#[derive(Debug, Display)]
+pub enum IpAddressError {
+    #[display(fmt = "{}", _0)]
+    AddrParseError(net::AddrParseError),
+
+    #[display(fmt = "Pattern doesn't match IPv4 or IPv6")]
+    NotAnIpAddress,
+}
+
+impl From<net::AddrParseError> for IpAddressError {
+    fn from(e: net::AddrParseError) -> Self {
+        IpAddressError::AddrParseError(e)
+    }
+}
+
+
+#[derive(Debug, Display)]
 pub enum IpRangeError {
-    #[fail(display = "Minimum value exceeds maximum value")]
+    #[display(fmt = "Minimum value exceeds maximum value")]
     MinExceedsMax,
 
-    #[fail(display = "Expected two IP addresses separated by '-' and no whitespace")]
+    #[display(fmt = "Expected two IP addresses separated by '-' and no whitespace")]
     MustUseDashNotation,
 
-    #[fail(display = "Contains invalid IP address: {}", _0)]
+    #[display(fmt = "Contains invalid IP address: {}", _0)]
     ContainsInvalidIpAddress(IpAddressError),
 }
 
@@ -302,15 +395,15 @@ impl From<IpAddressError> for IpRangeError {
 }
 
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Display)]
 pub enum IpNetError {
-    #[fail(display = "Invalid syntax. Expect: address/length")]
+    #[display(fmt = "Invalid syntax. Expect: address/length")]
     InvalidSyntax,
 
-    #[fail(display = "Invalid prefix length")]
+    #[display(fmt = "Invalid prefix length")]
     InvalidPrefixLength,
 
-    #[fail(display = "Base address invalid: {}", _0)]
+    #[display(fmt = "Base address invalid: {}", _0)]
     InvalidBaseAddress(IpAddressError),
 }
 
@@ -325,6 +418,8 @@ impl From<ParseIntError> for IpNetError {
         IpNetError::InvalidPrefixLength
     }
 }
+
+
 
 
 #[cfg(test)]
@@ -353,7 +448,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rang_invalid_if_min_bigger_than_max() {
+    fn test_range_invalid_if_min_bigger_than_max() {
         let min = IpAddress::new(128);
         let max = IpAddress::new(0);
         let range = IpRange::create(min, max);
@@ -375,6 +470,17 @@ mod tests {
         assert!(!IpRange::from_str("10.0.0.0-10.0.255.254").unwrap().is_prefix());
         assert!(!IpRange::from_str("10.0.0.0-10.0.254.255").unwrap().is_prefix());
         assert!(!IpRange::from_str("0.0.0.128-0.0.1.127").unwrap().is_prefix());
+    }
+
+    #[test]
+    fn test_range_from_start_and_number() {
+        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let range_with_number = IpRange::from_min_and_number(
+            IpAddress::from_str("10.0.0.0").unwrap(),
+            256
+        ).unwrap();
+
+        assert_eq!(range, range_with_number);
     }
 
     #[test]
@@ -410,7 +516,7 @@ mod tests {
     fn test_ip_resource_set_functions() {
         let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
 
-        let mut set = IpResourceSet::new();
+        let mut set = IpResourceSet::empty();
         set.add_ip_range(range);
 
         assert_eq!(set.included, vec![range]);
@@ -428,7 +534,7 @@ mod tests {
     #[test]
     fn test_ip_resource_set_remove() {
         let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
-        let mut set = IpResourceSet::new();
+        let mut set = IpResourceSet::empty();
         set.add_ip_range(range);
 
         let intersecting_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
@@ -453,5 +559,52 @@ mod tests {
         set.remove_ip_range(encompassing);
         assert_eq!(set.included, vec![]);
     }
+
+    #[test]
+    fn test_ip_range_tree() {
+
+        struct VRP {
+            asn: u32,
+            prefix: IpRange,
+            max_length: u8
+        }
+
+        let vrps = vec![
+            VRP { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
+            VRP { asn: 2, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
+            VRP { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.1.255").unwrap(), max_length: 24 },
+            VRP { asn: 0, prefix: IpRange::from_str("10.0.2.0-10.0.3.255").unwrap(), max_length: 24 },
+        ];
+
+        impl ToIpRange for VRP {
+            fn to_ip_range(&self) -> IpRange {
+                self.prefix.clone()
+            }
+        }
+
+        let mut builder = IpRangeTreeBuilder::empty();
+        for vrp in vrps {
+            builder.add(vrp);
+        }
+        let tree = builder.build();
+
+        let search = IpRange::from_str("10.0.0.0-10.0.1.255").unwrap();
+
+        let matches = tree.matching_or_more_specific(&search);
+        assert_eq!(3, matches.len());
+
+        let search = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let matches = tree.matching_or_more_specific(&search);
+        assert_eq!(2, matches.len());
+
+        let search = IpRange::from_str("10.0.2.0-10.0.3.255").unwrap();
+        let matches = tree.matching_or_more_specific(&search);
+        assert_eq!(1, matches.len());
+
+        let search = IpRange::from_str("10.0.0.0-10.0.0.2").unwrap();
+        let matches = tree.matching_or_less_specific(&search);
+        assert_eq!(3, matches.len());
+    }
+
 }
 
