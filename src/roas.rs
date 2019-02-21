@@ -1,19 +1,18 @@
 //! Parse ROAs.csv
-
-use crate::ip::IpRange;
-use ip::ToIpRange;
-use ip::IpRangeTree;
-use std::path::PathBuf;
 use std::fs::File;
 use std::io;
 use std::io::BufReader;
 use std::io::BufRead;
-use ip::IpRangeTreeBuilder;
-use std::str::FromStr;
-use ip::IpRangeError;
-use ip::IpPrefix;
-use ip::IpNetError;
 use std::num::ParseIntError;
+use std::path::PathBuf;
+use std::str::FromStr;
+use crate::ip::IpNetError;
+use crate::ip::IpPrefix;
+use crate::ip::IpRange;
+use crate::ip::IpRangeError;
+use crate::ip::IpRangeTree;
+use crate::ip::IpRangeTreeBuilder;
+use crate::ip::ToIpRange;
 
 #[derive(Clone, Debug)]
 pub struct ValidatedRoaPrefix {
