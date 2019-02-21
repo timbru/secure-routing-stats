@@ -12,6 +12,7 @@ use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
+use std::fmt::Display;
 
 
 //------------ ValidatedRoaPrefix --------------------------------------------
@@ -36,13 +37,13 @@ impl FromStr for ValidatedRoaPrefix {
         let line = s.replace("\"", "");
         let mut values = line.split(',');
 
-        let asn_str = values.next().ok_or(Error::ParseError)?;
+        let asn_str = values.next().ok_or(Error::MissingColumn)?;
         let asn = u32::from_str(&asn_str.replace("AS", ""))?;
 
-        let prefix_str = values.next().ok_or(Error::ParseError)?;
+        let prefix_str = values.next().ok_or(Error::MissingColumn)?;
         let prefix = IpPrefix::from_str(prefix_str)?;
 
-        let length_str = values.next().ok_or(Error::ParseError)?;
+        let length_str = values.next().ok_or(Error::MissingColumn)?;
         let max_length = u8::from_str(length_str)?;
 
         Ok(ValidatedRoaPrefix { asn, prefix, max_length })
@@ -82,8 +83,17 @@ pub enum Error {
     #[display(fmt = "{}", _0)]
     IoError(io::Error),
 
-    #[display(fmt = "Error parsing ROAs.csv")]
-    ParseError,
+    #[display(fmt = "Missing column in roas.csv")]
+    MissingColumn,
+
+    #[display(fmt = "Error parsing ROAs.csv: {}", _0)]
+    ParseError(String),
+}
+
+impl Error {
+    fn parse_error(e: impl Display) -> Self {
+        Error::ParseError(format!("{}", e))
+    }
 }
 
 impl From<io::Error> for Error {
@@ -91,11 +101,11 @@ impl From<io::Error> for Error {
 }
 
 impl From<IpNetError> for Error {
-    fn from(_e: IpNetError) -> Self { Error::ParseError }
+    fn from(e: IpNetError) -> Self { Error::parse_error(e) }
 }
 
 impl From<ParseIntError> for Error {
-    fn from(_e: ParseIntError) -> Self { Error::ParseError }
+    fn from(e: ParseIntError) -> Self { Error::parse_error(e) }
 }
 
 
