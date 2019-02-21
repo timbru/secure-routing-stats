@@ -1,15 +1,20 @@
+use std::cmp;
+use std::collections::HashMap;
 use std::fmt;
+use std::net;
 use std::num::ParseIntError;
 use std::str::FromStr;
-use std::cmp;
-use std::net;
-use intervaltree::IntervalTree;
 use std::ops::Range;
-use std::collections::HashMap;
+use intervaltree::IntervalTree;
 
 // https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
 const IPV4_UNUSED: u128 = 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000;
+
+
+//------------ Asn ----------------------------------------------------------
+
+pub type Asn = u32;
 
 
 //------------ IpAddressFamily -----------------------------------------------

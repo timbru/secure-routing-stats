@@ -6,6 +6,7 @@ use std::io::BufRead;
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
+use crate::ip::Asn;
 use crate::ip::IpNetError;
 use crate::ip::IpPrefix;
 use crate::ip::IpRange;
@@ -19,7 +20,7 @@ use crate::ip::ToIpRange;
 
 #[derive(Clone, Debug)]
 pub struct ValidatedRoaPrefix {
-    asn: u32,
+    asn: Asn,
     prefix: IpPrefix,
     max_length: u8
 }
