@@ -10,7 +10,6 @@ use crate::ip::Asn;
 use crate::ip::IpNetError;
 use crate::ip::IpPrefix;
 use crate::ip::IpRange;
-use crate::ip::IpRangeError;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
 use crate::ip::ToIpRange;
@@ -88,10 +87,6 @@ pub enum Error {
 
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self { Error::IoError(e) }
-}
-
-impl From<IpRangeError> for Error {
-    fn from(_e: IpRangeError) -> Self { Error::ParseError }
 }
 
 impl From<IpNetError> for Error {
