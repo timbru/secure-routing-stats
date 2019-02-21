@@ -199,13 +199,16 @@ impl From<&Range<u128>> for IpRange {
     }
 }
 
-
 //------------ IpPrefix ------------------------------------------------------
 
 #[derive(Clone, Debug)]
 pub struct IpPrefix {
     range: IpRange,
     length: u8,
+}
+
+impl IpPrefix {
+    pub fn length(&self) -> u8 { self.length }
 }
 
 impl FromStr for IpPrefix {
@@ -436,12 +439,12 @@ mod tests {
 
     #[test]
     fn test_make_ipv4_from_string() {
-        assert_eq!(IPV4_IN_IPV6 | 0, IpAddress::from_str("0.0.0.0").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6, IpAddress::from_str("0.0.0.0").unwrap().value);
         assert_eq!(IPV4_IN_IPV6 | 255, IpAddress::from_str("0.0.0.255").unwrap().value);
         assert_eq!(IPV4_IN_IPV6 | 256, IpAddress::from_str("0.0.1.0").unwrap().value);
         assert_eq!(IPV4_IN_IPV6 | 65535, IpAddress::from_str("0.0.255.255").unwrap().value);
         assert_eq!(IPV4_IN_IPV6 | 65536, IpAddress::from_str("0.1.0.0").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 16777216, IpAddress::from_str("1.0.0.0").unwrap().value);
+        assert_eq!(IPV4_IN_IPV6 | 16_777_216, IpAddress::from_str("1.0.0.0").unwrap().value);
 
         assert!(IpAddress::from_str("yadiyada").is_err());
         assert!(IpAddress::from_str("").is_err());

@@ -3,6 +3,7 @@
 //! http://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz
 
 use std::io;
+use std::fmt::Display;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -10,11 +11,11 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
 use crate::ip::Asn;
+use crate::ip::IpNetError;
 use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
-use ip::IpNetError;
 
 
 //------------ Announcement --------------------------------------------------
@@ -23,6 +24,30 @@ use ip::IpNetError;
 pub struct Announcement {
     asn: Asn,
     prefix: IpPrefix
+}
+
+impl Announcement {
+    pub fn new(prefix: IpPrefix, asn: Asn) -> Self {
+        Announcement { prefix, asn }
+    }
+
+    pub fn asn(&self) -> &Asn { &self.asn }
+    pub fn prefix(&self) -> &IpPrefix { &self.prefix }
+}
+
+impl FromStr for Announcement {
+    type Err = Error;
+
+    /// Expects: "Asn, IpPrefix"
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let line = s.replace(" ", ""); // strip whitespace
+        let mut values = line.split(',');
+        let asn_str = values.next().ok_or(Error::MissingColumn)?;
+        let pfx_str = values.next().ok_or(Error::MissingColumn)?;
+        let asn = Asn::from_str(asn_str)?;
+        let prefix = IpPrefix::from_str(pfx_str)?;
+        Ok(Announcement{ asn, prefix })
+    }
 }
 
 impl AsRef<IpRange> for Announcement {
@@ -51,9 +76,9 @@ impl RisAnnouncements {
 
             let mut values = line.split_whitespace();
 
-            let asn_str = values.next().ok_or(Error::ParseError)?;
-            let prefix_str = values.next().ok_or(Error::ParseError)?;
-            let peers = values.next().ok_or(Error::ParseError)?;
+            let asn_str = values.next().ok_or(Error::MissingColumn)?;
+            let prefix_str = values.next().ok_or(Error::MissingColumn)?;
+            let peers = values.next().ok_or(Error::MissingColumn)?;
 
             if u32::from_str(peers)? <= 5 {
                 continue
@@ -83,8 +108,17 @@ pub enum Error {
     #[display(fmt = "{}", _0)]
     IoError(io::Error),
 
-    #[display(fmt = "Error parsing ROAs.csv")]
-    ParseError,
+    #[display(fmt = "Missing column in roas.csv")]
+    MissingColumn,
+
+    #[display(fmt = "Error parsing announcements: {}", _0)]
+    ParseError(String),
+}
+
+impl Error {
+    fn parse_error(e: impl Display) -> Self {
+        Error::ParseError(format!("{}", e))
+    }
 }
 
 impl From<io::Error> for Error {
@@ -92,18 +126,17 @@ impl From<io::Error> for Error {
 }
 
 impl From<IpNetError> for Error {
-    fn from(_e: IpNetError) -> Self { Error::ParseError }
+    fn from(e: IpNetError) -> Self { Error::parse_error(e) }
 }
 
 impl From<ParseIntError> for Error {
-    fn from(_e: ParseIntError) -> Self { Error::ParseError }
+    fn from(e: ParseIntError) -> Self { Error::parse_error(e) }
 }
 
 //------------ Tests --------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
@@ -118,6 +151,6 @@ mod tests {
 
         let matches = announcements.matching_or_more_specific(test_ann.as_ref());
 
-        assert!(matches.len() > 0);
+        assert_eq!(matches.len(), 1);
     }
 }

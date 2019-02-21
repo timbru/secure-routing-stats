@@ -6,3 +6,4 @@ pub mod announcements;
 pub mod delegations;
 pub mod ip;
 pub mod roas;
+pub mod validation;

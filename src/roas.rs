@@ -1,4 +1,5 @@
 //! Parse ROAs.csv
+use std::fmt::Display;
 use std::fs::File;
 use std::io;
 use std::io::BufReader;
@@ -12,7 +13,6 @@ use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
-use std::fmt::Display;
 
 
 //------------ ValidatedRoaPrefix --------------------------------------------
@@ -23,6 +23,19 @@ pub struct ValidatedRoaPrefix {
     prefix: IpPrefix,
     max_length: u8
 }
+
+impl ValidatedRoaPrefix {
+    pub fn asn(&self) -> &Asn { &self.asn }
+    pub fn prefix(&self) -> &IpPrefix { &self.prefix }
+    pub fn max_length(&self) -> u8 { self.max_length }
+}
+
+impl ValidatedRoaPrefix {
+    pub fn contains(&self, range: &IpRange) -> bool {
+        self.prefix.as_ref().contains(&range.to_range())
+    }
+}
+
 
 impl AsRef<IpRange> for ValidatedRoaPrefix {
     fn as_ref(&self) -> &IpRange {
@@ -35,6 +48,7 @@ impl FromStr for ValidatedRoaPrefix {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let line = s.replace("\"", "");
+        let line = line.replace(" ", "");
         let mut values = line.split(',');
 
         let asn_str = values.next().ok_or(Error::MissingColumn)?;
