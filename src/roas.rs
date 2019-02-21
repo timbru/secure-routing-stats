@@ -14,6 +14,9 @@ use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
 use crate::ip::ToIpRange;
 
+
+//------------ ValidatedRoaPrefix --------------------------------------------
+
 #[derive(Clone, Debug)]
 pub struct ValidatedRoaPrefix {
     asn: u32,
@@ -45,6 +48,9 @@ impl ValidatedRoaPrefix {
     }
 }
 
+
+//------------ Roas ----------------------------------------------------------
+
 pub type Roas = IpRangeTree<ValidatedRoaPrefix>;
 
 impl Roas {
@@ -68,6 +74,9 @@ impl Roas {
         Ok(builder.build())
     }
 }
+
+
+//------------ Error --------------------------------------------------------
 
 #[derive(Debug, Display)]
 pub enum Error {
@@ -96,7 +105,6 @@ impl From<ParseIntError> for Error {
 
 
 //------------ Tests --------------------------------------------------------
-
 
 #[cfg(test)]
 mod tests {
