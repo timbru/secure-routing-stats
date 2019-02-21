@@ -29,10 +29,11 @@ impl AsRef<IpRange> for ValidatedRoaPrefix {
     }
 }
 
+impl FromStr for ValidatedRoaPrefix {
+    type Err = Error;
 
-impl ValidatedRoaPrefix {
-    fn from_line(line: &str) -> Result<Self, Error> {
-        let line = line.replace("\"", "");
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let line = s.replace("\"", "");
         let mut values = line.split(',');
 
         let asn_str = values.next().ok_or(Error::ParseError)?;
@@ -65,7 +66,7 @@ impl Roas {
             if line.starts_with("\"ASN\"") {
                 continue
             }
-            let vrp = ValidatedRoaPrefix::from_line(&line)?;
+            let vrp = ValidatedRoaPrefix::from_str(&line)?;
             builder.add(vrp);
         };
 
