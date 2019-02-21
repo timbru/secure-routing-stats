@@ -61,8 +61,6 @@ impl Roas {
 
         let mut builder = IpRangeTreeBuilder::empty();
 
-        // So that we can make an iterator of ValidatedRoaPrefix
-        // and use it to construct the IntervalTree
         for lres in reader.lines() {
             let line = lres?;
             if line.starts_with("\"ASN\"") {
