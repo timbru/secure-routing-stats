@@ -3,6 +3,6 @@ extern crate core;
 extern crate intervaltree;
 
 pub mod announcements;
-pub mod delegated;
+pub mod delegations;
 pub mod ip;
 pub mod roas;
