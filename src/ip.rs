@@ -309,11 +309,11 @@ impl IpResourceSet {
 
 //------------ IpRangeTree --------------------------------------------------
 
-pub struct IpRangeTree<V: ToIpRange> {
+pub struct IpRangeTree<V: AsRef<IpRange>> {
     tree: IntervalTree<u128, Vec<V>>
 }
 
-impl<V: ToIpRange> IpRangeTree<V> {
+impl<V: AsRef<IpRange>> IpRangeTree<V> {
     pub fn new(tree: IntervalTree<u128, Vec<V>>) -> Self {
         IpRangeTree { tree }
     }
@@ -343,19 +343,15 @@ impl<V: ToIpRange> IpRangeTree<V> {
     }
 }
 
-pub trait ToIpRange {
-    fn to_ip_range(&self) -> &IpRange;
-}
-
-pub struct IpRangeTreeBuilder<V: ToIpRange> {
+pub struct IpRangeTreeBuilder<V: AsRef<IpRange>> {
     values: HashMap<Range<u128>, Vec<V>>
 }
 
-impl<V: ToIpRange> IpRangeTreeBuilder<V> {
+impl<V: AsRef<IpRange>> IpRangeTreeBuilder<V> {
     pub fn empty() -> Self { IpRangeTreeBuilder { values: HashMap::new() }}
 
     pub fn add(&mut self, value: V) {
-        let ip_range = value.to_ip_range().to_range();
+        let ip_range = value.as_ref().to_range();
 
         let entry = self.values.entry(ip_range).or_insert_with(|| vec![]);
         entry.push(value);
@@ -576,24 +572,26 @@ mod tests {
     fn test_ip_range_tree() {
 
         #[derive(Debug)]
-        struct VRP {
+        struct TypeWithRange {
             asn: u32,
             prefix: IpRange,
             max_length: u8
         }
 
-        let vrps = vec![
-            VRP { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
-            VRP { asn: 2, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
-            VRP { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.1.255").unwrap(), max_length: 24 },
-            VRP { asn: 0, prefix: IpRange::from_str("10.0.2.0-10.0.3.255").unwrap(), max_length: 24 },
-        ];
-
-        impl ToIpRange for VRP {
-            fn to_ip_range(&self) -> &IpRange {
+        impl AsRef<IpRange> for TypeWithRange {
+            fn as_ref(&self) -> &IpRange {
                 &self.prefix
             }
         }
+
+        let vrps = vec![
+            TypeWithRange { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
+            TypeWithRange { asn: 2, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
+            TypeWithRange { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.1.255").unwrap(), max_length: 24 },
+            TypeWithRange { asn: 0, prefix: IpRange::from_str("10.0.2.0-10.0.3.255").unwrap(), max_length: 24 },
+        ];
+
+
 
         let mut builder = IpRangeTreeBuilder::empty();
         for vrp in vrps {

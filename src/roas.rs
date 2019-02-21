@@ -12,7 +12,6 @@ use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
-use crate::ip::ToIpRange;
 
 
 //------------ ValidatedRoaPrefix --------------------------------------------
@@ -24,11 +23,12 @@ pub struct ValidatedRoaPrefix {
     max_length: u8
 }
 
-impl ToIpRange for ValidatedRoaPrefix {
-    fn to_ip_range(&self) -> &IpRange {
+impl AsRef<IpRange> for ValidatedRoaPrefix {
+    fn as_ref(&self) -> &IpRange {
         self.prefix.as_ref()
     }
 }
+
 
 impl ValidatedRoaPrefix {
     fn from_line(line: &str) -> Result<Self, Error> {
