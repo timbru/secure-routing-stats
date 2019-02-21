@@ -4,8 +4,8 @@ use crate::ip::{
     IpRange
 };
 
-
-enum Source {
+#[derive(Clone, Debug)]
+pub enum Source {
     Iana,
     Afrinic,
     Apnic,
@@ -14,7 +14,8 @@ enum Source {
     RipeNcc
 }
 
-struct Delegation {
+#[derive(Clone, Debug)]
+pub struct Delegation {
     source: Source,
     country: String,
     range: IpRange
