@@ -48,10 +48,18 @@ impl Default for CountryStats {
 impl CountryStats {
 
     pub fn add(&mut self, ann: &ValidatedAnnouncement, cc: &str) {
-        let cc = cc.to_string();
-        let stat = self.stats.entry(cc).or_insert_with(|| CountryStat::default
-            ());
-        stat.add(ann)
+        {
+            let cc = cc.to_string();
+            let stat = self.stats.entry(cc)
+                .or_insert_with(CountryStat::default);
+            stat.add(ann);
+        }
+
+        {
+            let all_stat = self.stats.entry("all".to_string())
+                .or_insert_with(CountryStat::default);
+            all_stat.add(ann);
+        }
     }
 }
 
