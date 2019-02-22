@@ -83,6 +83,13 @@ pub struct IpDelegation {
     state: DelegationState
 }
 
+impl IpDelegation {
+    pub fn reg(&self) -> &Registry { &self.reg }
+    pub fn cc(&self) -> &str { &self.cc }
+    pub fn range(&self) -> &IpRange { &self.range }
+    pub fn state(&self) -> &DelegationState { &self.state }
+}
+
 impl FromStr for IpDelegation {
     type Err = Error;
 

@@ -5,5 +5,6 @@ extern crate intervaltree;
 pub mod announcements;
 pub mod delegations;
 pub mod ip;
+pub mod report;
 pub mod roas;
 pub mod validation;

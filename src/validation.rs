@@ -128,11 +128,5 @@ mod tests {
             );
             assert_eq!(&ValidationState::Valid, validated.state());
         }
-
-
-
-
-
     }
-
 }

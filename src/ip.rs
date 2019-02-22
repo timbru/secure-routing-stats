@@ -344,6 +344,10 @@ impl<V: AsRef<IpRange>> IpRangeTree<V> {
         }
         res
     }
+
+    pub fn inner(&self) -> &IntervalTree<u128, Vec<V>> {
+        &self.tree
+    }
 }
 
 pub struct IpRangeTreeBuilder<V: AsRef<IpRange>> {

@@ -108,7 +108,7 @@ pub enum Error {
     #[display(fmt = "{}", _0)]
     IoError(io::Error),
 
-    #[display(fmt = "Missing column in roas.csv")]
+    #[display(fmt = "Missing column in announcements input")]
     MissingColumn,
 
     #[display(fmt = "Error parsing announcements: {}", _0)]

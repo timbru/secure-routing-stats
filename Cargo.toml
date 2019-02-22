@@ -1,5 +1,5 @@
 [package]
-name = "secure-routing-stats"
+name = "secure_routing_stats"
 version = "0.1.0"
 authors = ["Tim Bruijnzeels <tim@nlnetlabs.nl>"]
 
