@@ -78,7 +78,7 @@ impl Default for CountryStat {
 //------------ CountryStats -------------------------------------------------
 
 /// This type keeps a map of country code to CountryStat.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct CountryStats {
     stats: HashMap<String, CountryStat>
 }
@@ -242,18 +242,19 @@ impl WorldStatsReport {
         }
 
         match options.format {
-            WorldStatsFormat::Json => Self::json(&country_stats),
-            WorldStatsFormat::Html => Self::html(&country_stats)
+            WorldStatsFormat::Json => Self::json(&country_stats)?,
+            WorldStatsFormat::Html => Self::html(&country_stats)?
         }
 
         Ok(())
     }
 
-    fn json(stats: &CountryStats) {
-        println!("{:?}", stats);
+    fn json(stats: &CountryStats) -> Result<(), Error> {
+        println!("{}", serde_json::to_string(stats)?);
+        Ok(())
     }
 
-    fn html(stats: &CountryStats) {
+    fn html(stats: &CountryStats) -> Result<(), Error> {
         let template = include_str!["../templates/worldmap.html"];
 
         let html = template.replace(
@@ -272,6 +273,7 @@ impl WorldStatsReport {
         );
 
         println!("{}", html);
+        Ok(())
     }
 }
 
@@ -322,37 +324,119 @@ impl InvalidsReport {
 
         let report = InvalidsReport { announcements, roas};
 
-        match &options.scope {
+        let res = match &options.scope {
             None => report.report_all(),
             Some(set) => report.report_set(set)
-        }
+        };
+
+        println!("{}", serde_json::to_string(&res)?);
 
         Ok(())
     }
 
-    fn report_announcement(&self, ann: &Announcement) {
+    fn validate(&self, ann: &Announcement) -> ValidatedAnnouncement {
         let matching_roas = self.roas.matching_or_less_specific(ann.as_ref());
-        let validated = ValidatedAnnouncement::create(ann, &matching_roas);
-
-        if validated.state() == &ValidationState::InvalidAsn ||
-            validated.state() == &ValidationState::InvalidLength {
-            println!("{:?}", validated)
-        }
+        ValidatedAnnouncement::create(ann, &matching_roas)
     }
 
-    fn report_all(&self) {
+    fn report_all(&self) -> InvalidsResult {
+        let mut res = InvalidsResult::default();
+
         for el in self.announcements.inner().iter() {
             for ann in el.value.iter() {
-                self.report_announcement(ann)
+                res.add(self.validate(ann));
             }
         }
+
+        res
     }
 
-    fn report_set(&self, set: &IpResourceSet) {
+    fn report_set(&self, set: &IpResourceSet) -> InvalidsResult {
+        let mut res = InvalidsResult::default();
+
         for range in set.ranges() {
             for ann in self.announcements.matching_or_more_specific(&range) {
-                self.report_announcement(ann)
+                res.add(self.validate(ann));
             }
+        }
+
+        res
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct InvalidsResult {
+    totals: InvalidsResultTotals,
+    invalids: InvalidsDetails
+}
+
+impl Default for InvalidsResult {
+    fn default() -> Self {
+        InvalidsResult {
+            totals: InvalidsResultTotals::default(),
+            invalids: InvalidsDetails::default()
+        }
+    }
+}
+
+impl InvalidsResult {
+    pub fn add(&mut self, ann: ValidatedAnnouncement) {
+        self.totals.add(&ann);
+        self.invalids.add(ann);
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct InvalidsResultTotals {
+    valid: usize,
+    invalid_asn: usize,
+    invalid_length: usize,
+    not_found: usize
+}
+
+impl Default for InvalidsResultTotals {
+    fn default() -> Self {
+        InvalidsResultTotals {
+            valid: 0,
+            invalid_asn: 0,
+            invalid_length: 0,
+            not_found: 0
+        }
+    }
+}
+
+impl InvalidsResultTotals {
+    pub fn add(&mut self, ann: &ValidatedAnnouncement) {
+        match ann.state() {
+            ValidationState::Valid         => self.valid += 1,
+            ValidationState::InvalidLength => self.invalid_length += 1,
+            ValidationState::InvalidAsn    => self.invalid_asn += 1,
+            ValidationState::NotFound      => self.not_found += 1,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct InvalidsDetails {
+    invalid_length: Vec<ValidatedAnnouncement>,
+    invalid_asn: Vec<ValidatedAnnouncement>
+}
+
+impl Default for InvalidsDetails {
+    fn default() -> Self {
+        InvalidsDetails {
+            invalid_length: vec![],
+            invalid_asn: vec![]
+        }
+    }
+}
+
+impl InvalidsDetails {
+    pub fn add(&mut self, ann: ValidatedAnnouncement) {
+        match ann.state() {
+            ValidationState::InvalidAsn    => self.invalid_asn.push(ann),
+            ValidationState::InvalidLength => self.invalid_length.push(ann),
+            _ => {}
         }
     }
 }
@@ -366,7 +450,10 @@ pub enum Error {
     WithMessage(String),
 
     #[display(fmt="{}", _0)]
-    IpResourceSet(IpRespourceSetError)
+    IpResourceSet(IpRespourceSetError),
+
+    #[display(fmt="{}", _0)]
+    JsonError(serde_json::Error),
 }
 
 impl Error {
@@ -377,5 +464,9 @@ impl Error {
 
 impl From<IpRespourceSetError> for Error {
     fn from(e: IpRespourceSetError) -> Self { Error::IpResourceSet(e) }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self { Error::JsonError(e) }
 }
 

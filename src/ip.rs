@@ -28,7 +28,7 @@ pub enum IpAddressFamily {
 
 //------------ IpAddress -----------------------------------------------------
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize)]
 pub struct IpAddress {
     value: u128
 }
@@ -100,7 +100,7 @@ impl FromStr for IpAddress {
 
 //------------ IpRange -------------------------------------------------------
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize)]
 pub struct IpRange {
     min: IpAddress,
     max: IpAddress,
@@ -201,7 +201,7 @@ impl From<&Range<u128>> for IpRange {
 
 //------------ IpPrefix ------------------------------------------------------
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct IpPrefix {
     range: IpRange,
     length: u8,

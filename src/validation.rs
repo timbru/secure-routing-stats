@@ -4,7 +4,7 @@ use crate::roas::ValidatedRoaPrefix;
 
 //------------ ValidationState ----------------------------------------------
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum ValidationState {
     Valid,
     InvalidAsn,
@@ -15,7 +15,7 @@ pub enum ValidationState {
 
 //------------ ValidatedAnnouncement -----------------------------------------
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ValidatedAnnouncement {
     announcement: Announcement,
     state: ValidationState

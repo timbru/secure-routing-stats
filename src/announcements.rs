@@ -20,7 +20,7 @@ use crate::ip::IpRangeTreeBuilder;
 
 //------------ Announcement --------------------------------------------------
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Announcement {
     asn: Asn,
     prefix: IpPrefix
