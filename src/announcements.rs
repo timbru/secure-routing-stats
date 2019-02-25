@@ -11,7 +11,7 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
 use crate::ip::Asn;
-use crate::ip::IpNetError;
+use crate::ip::IpPrefixError;
 use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
@@ -125,8 +125,8 @@ impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self { Error::IoError(e) }
 }
 
-impl From<IpNetError> for Error {
-    fn from(e: IpNetError) -> Self { Error::parse_error(e) }
+impl From<IpPrefixError> for Error {
+    fn from(e: IpPrefixError) -> Self { Error::parse_error(e) }
 }
 
 impl From<ParseIntError> for Error {

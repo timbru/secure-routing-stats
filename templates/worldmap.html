@@ -1,0 +1,159 @@
+<!--
+
+Copyright (c) 2018, NLnet Labs. All rights reserved.
+
+This software is open source.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+Neither the name of the NLNET LABS nor the names of its contributors may
+be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-->
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset="UTF-8">
+
+    <title>Statistics &mdash; RIPE Network Coordination Centre</title>
+
+    <script type="text/javascript" src="https://www.ripe.net/jquery.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+
+    google.load('visualization', '1', {packages: ['geochart']});
+    google.setOnLoadCallback(drawMap);
+
+      function drawMap() {
+
+        // Prefixes adoption world map
+
+        var prefixes_adoption_data = google.visualization.arrayToDataTable([
+          ['Country', '%'],
+***COUNTRY_PREFIXES_ADOPTION***
+        ]);
+
+        var prefixes_adoption_options = {
+                width: 900,
+                keepAspectRatio: true,
+                title: 'Fraction of announced IPv4 prefixes covered',
+                colorAxis: { values:[0,100] }
+        };
+
+        var adoption_chart = new google.visualization.GeoChart(document.getElementById('prefixes_adoption_worldmap'));
+        adoption_chart.draw(prefixes_adoption_data, prefixes_adoption_options);
+
+         // Prefixes VALID world map
+
+        var prefixes_valid_data = google.visualization.arrayToDataTable([
+          ['Country', '%'],
+***COUNTRY_PREFIXES_VALID***
+        ]);
+
+        var prefixes_valid_options = {
+                width: 900,
+                keepAspectRatio: true,
+                title: 'Fraction of announced IPv4 prefixes valid',
+                colorAxis: { values:[0,100] }
+        };
+
+        var prefixes_valid_chart = new google.visualization.GeoChart(document.getElementById('prefixes_valid_worldmap'));
+        prefixes_valid_chart.draw(prefixes_valid_data, prefixes_valid_options);
+
+        // Prefixes BGP matching
+
+        var prefixes_matching_data = google.visualization.arrayToDataTable([
+          ['Country', '%'],
+***COUNTRY_PREFIXES_QUALITY***
+        ]);
+
+        var prefixes_matching_options = {
+                width: 900,
+                keepAspectRatio: true,
+                title: 'Prefixes ROAs matching actual BGP',
+                colorAxis: { colors:['#fd2323', '#ed9200', '#e4d417', '#95c12d'], values:[0,100] }
+        };
+
+        var prefixes_matching_chart = new google.visualization.GeoChart(document.getElementById('prefixes_matching_worldmap'));
+        prefixes_matching_chart.draw(prefixes_matching_data, prefixes_matching_options);
+
+      };
+
+      $(document).ready(function() {
+            $("select").change(function() {
+
+                $(this).find("option:selected").each(function() {
+                    if ($(this).attr("value")=="paw") {
+                        $(".graph").not(".paw").hide();
+                        $(".paw").show();
+                    } else if ($(this).attr("value")=="pvw") {
+                        $(".graph").not(".pvw").hide();
+                        $(".pvw").show();
+                    } else if ($(this).attr("value")=="pmw") {
+                        $(".graph").not(".pmw").hide();
+                        $(".pmw").show();
+                    } else { // default
+                        $(".graph").not(".paw").hide();
+                        $(".saw").show();
+                    }
+               });
+            }).change();
+      });
+
+    </script>
+
+
+</head>
+
+
+<body>
+    <main>
+        <div id="content">
+            <p>Select a graph:
+                <select id="type_select_selector">
+                    <option value="paw">IPv4 prefixes covered</option>
+                    <option value="pvw">IPv4 prefixes valid</option>
+                    <option value="pmw">IPv4 prefixes valid as fraction of covered</option>
+                </select>
+            </p>
+
+            <div id="prefixes_adoption" class="graph paw">
+                <div id="prefixes_adoption_worldmap"></div>
+            </div>
+
+            <div id="prefixes_valid" class="graph pvw">
+                <div id="prefixes_valid_worldmap"></div>
+            </div>
+
+            <div id="prefixes_matching" class="graph pmw">
+                <div id="prefixes_matching_worldmap"></div>
+            </div>
+
+        </div>
+    </main>
+</body>
+
+</html>

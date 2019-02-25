@@ -212,13 +212,13 @@ impl IpPrefix {
 }
 
 impl FromStr for IpPrefix {
-    type Err = IpNetError;
+    type Err = IpPrefixError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let ip_values: Vec<&str> = s.split('/').collect();
 
         if ip_values.iter().count() != 2 {
-            return Err(IpNetError::InvalidSyntax);
+            return Err(IpPrefixError::InvalidSyntax);
         }
 
         let min = IpAddress::from_str(ip_values[0])?;
@@ -230,7 +230,7 @@ impl FromStr for IpPrefix {
         };
 
         if full_length > 128 || full_length < (128 - min.value.trailing_zeros() as u8) {
-            return Err(IpNetError::InvalidPrefixLength);
+            return Err(IpPrefixError::InvalidPrefixLength);
         }
 
         let max_val = min.value | ((1u128 << (128 - full_length)) - 1);
@@ -306,6 +306,32 @@ impl IpResourceSet {
         }
 
         self.included = keep;
+    }
+
+    pub fn ranges(&self) -> &Vec<IpRange> {
+        &self.included
+    }
+}
+
+
+impl FromStr for IpResourceSet {
+    type Err = IpRespourceSetError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let string = s.replace(" ", ""); // rem. whitespace
+        let mut included = vec![];
+        for s in string.split(',') {
+            if s.contains('/') {
+                let pfx = IpPrefix::from_str(s)?;
+                included.push(pfx.range)
+            } else {
+                let range = IpRange::from_str(s)?;
+                included.push(range);
+            }
+        }
+
+        Ok(IpResourceSet { included })
+
     }
 }
 
@@ -410,7 +436,7 @@ impl From<IpAddressError> for IpRangeError {
 
 
 #[derive(Debug, Display)]
-pub enum IpNetError {
+pub enum IpPrefixError {
     #[display(fmt = "Invalid syntax. Expect: address/length")]
     InvalidSyntax,
 
@@ -421,18 +447,38 @@ pub enum IpNetError {
     InvalidBaseAddress(IpAddressError),
 }
 
-impl From<IpAddressError> for IpNetError {
-    fn from(e: IpAddressError) -> IpNetError {
-        IpNetError::InvalidBaseAddress(e)
+impl From<IpAddressError> for IpPrefixError {
+    fn from(e: IpAddressError) -> IpPrefixError {
+        IpPrefixError::InvalidBaseAddress(e)
     }
 }
 
-impl From<ParseIntError> for IpNetError {
-    fn from(_: ParseIntError) -> IpNetError {
-        IpNetError::InvalidPrefixLength
+impl From<ParseIntError> for IpPrefixError {
+    fn from(_: ParseIntError) -> IpPrefixError {
+        IpPrefixError::InvalidPrefixLength
     }
 }
 
+
+#[derive(Debug, Display)]
+pub enum IpRespourceSetError {
+    #[display(fmt = "Invalid syntax. Expect comma separated prefixes/ranges")]
+    InvalidSyntax,
+
+    #[display(fmt = "{}", _0)]
+    IpRangeError(IpRangeError),
+
+    #[display(fmt = "{}", _0)]
+    IpPrefixError(IpPrefixError),
+}
+
+impl From<IpRangeError> for IpRespourceSetError {
+    fn from(e: IpRangeError) -> Self { IpRespourceSetError::IpRangeError(e)}
+}
+
+impl From<IpPrefixError> for IpRespourceSetError {
+    fn from(e: IpPrefixError) -> Self { IpRespourceSetError::IpPrefixError(e)}
+}
 
 
 //------------ Tests --------------------------------------------------------
