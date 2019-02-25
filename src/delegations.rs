@@ -1,20 +1,20 @@
 //! Parse delegated extended stats
 use std::str::FromStr;
-use crate::ip::{
-    IpRange
-};
 use std::io;
-use ip::IpRangeTree;
-use std::path::PathBuf;
-use std::fs::File;
-use std::io::BufReader;
-use ip::IpRangeTreeBuilder;
 use std::io::BufRead;
-use ip::IpAddress;
-use ip::IpRangeError;
-use ip::IpAddressError;
-use std::num::ParseIntError;
+use std::io::BufReader;
 use std::fmt::Display;
+use std::fs::File;
+use std::num::ParseIntError;
+use std::path::PathBuf;
+use crate::ip::{
+    IpAddress,
+    IpAddressError,
+    IpRange,
+    IpRangeError,
+    IpRangeTree,
+    IpRangeTreeBuilder
+};
 
 
 //------------ Registry -----------------------------------------------------

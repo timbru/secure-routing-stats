@@ -2,24 +2,16 @@ extern crate clap;
 #[macro_use] extern crate derive_more;
 extern crate secure_routing_stats;
 
-use std::path::PathBuf;
-use std::str::FromStr;
-use secure_routing_stats::announcements::Announcement;
-use secure_routing_stats::announcements::RisAnnouncements;
-use secure_routing_stats::delegations::IpDelegations;
-use secure_routing_stats::roas::Roas;
-use secure_routing_stats::ip::IpRangeTree;
-use secure_routing_stats::roas::ValidatedRoaPrefix;
-use secure_routing_stats::delegations::IpDelegation;
-use secure_routing_stats::validation::ValidatedAnnouncement;
-use secure_routing_stats::report::CountryStats;
 use clap::App;
 use clap::Arg;
 use clap::SubCommand;
-use clap::ArgMatches;
-use secure_routing_stats::ip::IpResourceSet;
-use secure_routing_stats::ip::IpRespourceSetError;
-use secure_routing_stats::validation::ValidationState;
+use secure_routing_stats::report::{
+    self,
+    InvalidsOpts,
+    InvalidsReport,
+    WorldStatsOpts,
+    WorldStatsReport
+};
 
 
 fn main() {
@@ -29,9 +21,20 @@ fn main() {
             ::std::process::exit(1);
         },
         Ok(option) => {
-            match option {
-                Options::WorldStats(worldstats) => { worldstats.execute() }
-                Options::Invalids(invalids) => { invalids.execute() }
+            let res = match option {
+                Options::WorldStats(opts) => {
+                    WorldStatsReport::execute(&opts)
+                }
+                Options::Invalids(opts) => {
+                    InvalidsReport::execute(&opts)
+                }
+            };
+            match res {
+                Ok(()) => {},
+                Err(e) => {
+                    eprintln!("{}", e);
+                    ::std::process::exit(1);
+                }
             }
         }
     }
@@ -95,180 +98,15 @@ impl Options {
             .get_matches();
 
         if let Some(world) = matches.subcommand_matches("world") {
-            Ok(Options::WorldStats(WorldStatsOpts::setup(world)?))
+            Ok(Options::WorldStats(WorldStatsOpts::parse(world)?))
         } else if let Some(invalids) = matches.subcommand_matches("invalids") {
-            Ok(Options::Invalids(InvalidsOpts::setup(invalids)?))
+            Ok(Options::Invalids(InvalidsOpts::parse(invalids)?))
         } else {
             Err(Error::msg("No sub-command given. See --help for options."))
         }
     }
 }
 
-struct WorldStatsOpts {
-    announcements: IpRangeTree<Announcement>,
-    roas: IpRangeTree<ValidatedRoaPrefix>,
-    delegations: IpRangeTree<IpDelegation>,
-    format: WorldOutputFormat
-}
-
-
-enum WorldOutputFormat {
-    Json,
-    Html
-}
-
-impl WorldStatsOpts {
-    pub fn setup(matches: &ArgMatches) -> Result<Self, Error> {
-        let dump_file = matches.value_of("dump").unwrap();
-        let roas_file = matches.value_of("roas").unwrap();
-        let stats_file = matches.value_of("stats").unwrap();
-
-        let format = {
-            if let Some(format) = matches.value_of("format") {
-                match format {
-                    "json" => WorldOutputFormat::Json,
-                    "html" => WorldOutputFormat::Html,
-                    f => return Err(Error::WithMessage(
-                        format!("Unsupported format: {}", f)))
-                }
-            } else {
-                WorldOutputFormat::Json
-            }
-        };
-
-
-        let announcements: IpRangeTree<Announcement> =
-            RisAnnouncements::from_file(&PathBuf::from(dump_file)).unwrap();
-
-        let roas: IpRangeTree<ValidatedRoaPrefix> =
-            Roas::from_file(&PathBuf::from(roas_file)).unwrap();
-
-        let delegations: IpRangeTree<IpDelegation> =
-            IpDelegations::from_file(&PathBuf::from(stats_file)).unwrap();
-
-        Ok(WorldStatsOpts { announcements, roas, delegations, format })
-    }
-
-    pub fn execute(&self) {
-        let mut country_stats = CountryStats::default();
-
-        for el in self.announcements.inner().iter() {
-            for ann in el.value.iter() {
-
-                let matching_roas = self.roas.matching_or_less_specific(ann.as_ref());
-                let validated = ValidatedAnnouncement::create(ann, &matching_roas);
-
-                let matching_delegations = self.delegations.matching_or_less_specific(ann.as_ref());
-
-                let cc = match matching_delegations.first() {
-                    Some(delegation) => &delegation.cc(),
-                    None => "XX"
-                };
-
-                country_stats.add(&validated, cc);
-            }
-        }
-
-        match self.format {
-            WorldOutputFormat::Json => Self::json(&country_stats),
-            WorldOutputFormat::Html => Self::html(&country_stats)
-        }
-
-    }
-
-    fn json(stats: &CountryStats) {
-        println!("{:?}", stats);
-    }
-
-    fn html(stats: &CountryStats) {
-        let template = include_str!["../../templates/worldmap.html"];
-
-        let html = template.replace(
-            "***COUNTRY_PREFIXES_ADOPTION***",
-            &stats.adoption_array()
-        );
-
-        let html = html.replace(
-            "***COUNTRY_PREFIXES_VALID***",
-            &stats.valid_array()
-        );
-
-        let html = html.replace(
-            "***COUNTRY_PREFIXES_QUALITY***",
-            &stats.quality_array()
-        );
-
-        println!("{}", html);
-    }
-
-}
-
-
-
-struct InvalidsOpts {
-    announcements: IpRangeTree<Announcement>,
-    roas: IpRangeTree<ValidatedRoaPrefix>,
-    scope: Option<IpResourceSet>
-}
-
-impl InvalidsOpts {
-    pub fn setup(matches: &ArgMatches) -> Result<Self, Error> {
-        let dump_file = matches.value_of("dump").unwrap();
-        let roas_file = matches.value_of("roas").unwrap();
-
-        let scope = {
-            if let Some(scope) = matches.value_of("scope") {
-                Some(IpResourceSet::from_str(scope)?)
-            } else {
-                None
-            }
-        };
-
-        let announcements: IpRangeTree<Announcement> =
-            RisAnnouncements::from_file(&PathBuf::from(dump_file)).unwrap();
-
-        let roas: IpRangeTree<ValidatedRoaPrefix> =
-            Roas::from_file(&PathBuf::from(roas_file)).unwrap();
-
-        Ok(InvalidsOpts{ announcements, roas, scope })
-    }
-
-    fn report_announcement(&self, ann: &Announcement) {
-        let matching_roas = self.roas.matching_or_less_specific(ann.as_ref());
-        let validated = ValidatedAnnouncement::create(ann, &matching_roas);
-
-        if validated.state() == &ValidationState::InvalidAsn ||
-           validated.state() == &ValidationState::InvalidLength {
-            println!("{:?}", validated)
-        }
-    }
-
-    fn report_all(&self) {
-        for el in self.announcements.inner().iter() {
-            for ann in el.value.iter() {
-                self.report_announcement(ann)
-            }
-        }
-    }
-
-    fn report_set(&self, set: &IpResourceSet) {
-        for range in set.ranges() {
-            for ann in self.announcements.matching_or_more_specific(&range) {
-                self.report_announcement(ann)
-            }
-        }
-
-    }
-
-    pub fn execute(&self) {
-        match &self.scope {
-            None => self.report_all(),
-            Some(set) => self.report_set(set)
-        }
-
-
-    }
-}
 
 //------------ Error --------------------------------------------------------
 
@@ -278,7 +116,7 @@ pub enum Error {
     WithMessage(String),
 
     #[display(fmt="{}", _0)]
-    IpResourceSet(IpRespourceSetError)
+    ReportError(report::Error),
 }
 
 impl Error {
@@ -287,7 +125,7 @@ impl Error {
     }
 }
 
-impl From<IpRespourceSetError> for Error {
-    fn from(e: IpRespourceSetError) -> Self { Error::IpResourceSet(e) }
+impl From<report::Error> for Error {
+    fn from(e: report::Error) -> Self { Error::ReportError(e) }
 }
 
