@@ -8,7 +8,33 @@ https://lirportal.ripe.net/certification/content/static/statistics/world-roas.ht
 This is still work in progress, and needs some more testing. But, we
 believe this is now mature enough to develop in the open.
 
-## Building
+## Getting Started
+
+### Rust
+
+While some system distributions include Rust as system packages, we rely on a
+relatively new version of Rust. We therefore suggest to use the canonical 
+Rust installation via a tool called rustup.
+
+To install rustup and Rust, simply do:
+```
+curl https://sh.rustup.rs -sSf | sh
+```
+Alternatively, get the file, have a look and then run it manually. Follow the instructions to get rustup and cargo, the rust build tool, into your path.
+
+You can update your Rust installation later by simply running:
+```
+rustup update 
+```
+
+### C Tool Chain
+
+Some of the libraries may require a C toolchain to be present. Your system 
+probably has some easy way to install the minimum set of packages to build 
+from C sources. If you are unsure, try to run ```cc``` on a command line and if 
+there’s a complaint about missing input files, you are probably good to go.
+
+### Build
 
 Checkout this source code and then make a release binary:
 
