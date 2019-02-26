@@ -367,14 +367,14 @@ impl InvalidsReport {
 #[derive(Clone, Debug, Serialize)]
 struct InvalidsResult {
     totals: InvalidsResultTotals,
-    invalids: InvalidsDetails
+    invalids: Vec<ValidatedAnnouncement>
 }
 
 impl Default for InvalidsResult {
     fn default() -> Self {
         InvalidsResult {
             totals: InvalidsResultTotals::default(),
-            invalids: InvalidsDetails::default()
+            invalids: vec![]
         }
     }
 }
@@ -382,7 +382,11 @@ impl Default for InvalidsResult {
 impl InvalidsResult {
     pub fn add(&mut self, ann: ValidatedAnnouncement) {
         self.totals.add(&ann);
-        self.invalids.add(ann);
+        match ann.state() {
+            ValidationState::InvalidLength => self.invalids.push(ann),
+            ValidationState::InvalidAsn    => self.invalids.push(ann),
+            _ => {}
+        }
     }
 }
 
@@ -412,31 +416,6 @@ impl InvalidsResultTotals {
             ValidationState::InvalidLength => self.invalid_length += 1,
             ValidationState::InvalidAsn    => self.invalid_asn += 1,
             ValidationState::NotFound      => self.not_found += 1,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct InvalidsDetails {
-    invalid_length: Vec<ValidatedAnnouncement>,
-    invalid_asn: Vec<ValidatedAnnouncement>
-}
-
-impl Default for InvalidsDetails {
-    fn default() -> Self {
-        InvalidsDetails {
-            invalid_length: vec![],
-            invalid_asn: vec![]
-        }
-    }
-}
-
-impl InvalidsDetails {
-    pub fn add(&mut self, ann: ValidatedAnnouncement) {
-        match ann.state() {
-            ValidationState::InvalidAsn    => self.invalid_asn.push(ann),
-            ValidationState::InvalidLength => self.invalid_length.push(ann),
-            _ => {}
         }
     }
 }

@@ -6,6 +6,8 @@ use std::num::ParseIntError;
 use std::str::FromStr;
 use std::ops::Range;
 use intervaltree::IntervalTree;
+use serde::Serialize;
+use serde::Serializer;
 
 // https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
@@ -28,7 +30,7 @@ pub enum IpAddressFamily {
 
 //------------ IpAddress -----------------------------------------------------
 
-#[derive(Clone, Copy, PartialEq, Serialize)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct IpAddress {
     value: u128
 }
@@ -71,6 +73,14 @@ impl fmt::Display for IpAddress {
     }
 }
 
+impl Serialize for IpAddress {
+    fn serialize<S>(
+        &self, serializer: S
+    ) -> Result<S::Ok, S::Error> where S: Serializer {
+        self.to_string().serialize(serializer)
+    }
+}
+
 impl FromStr for IpAddress {
     type Err = IpAddressError;
 
@@ -100,7 +110,7 @@ impl FromStr for IpAddress {
 
 //------------ IpRange -------------------------------------------------------
 
-#[derive(Clone, Copy, PartialEq, Serialize)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct IpRange {
     min: IpAddress,
     max: IpAddress,
@@ -174,6 +184,14 @@ impl fmt::Display for IpRange {
     }
 }
 
+impl Serialize for IpRange {
+    fn serialize<S>(
+        &self, serializer: S
+    ) -> Result<S::Ok, S::Error> where S: Serializer {
+        self.to_string().serialize(serializer)
+    }
+}
+
 impl FromStr for IpRange {
     type Err = IpRangeError;
 
@@ -201,7 +219,7 @@ impl From<&Range<u128>> for IpRange {
 
 //------------ IpPrefix ------------------------------------------------------
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone)]
 pub struct IpPrefix {
     range: IpRange,
     length: u8,
@@ -248,10 +266,28 @@ impl AsRef<IpRange> for IpPrefix {
     }
 }
 
+impl fmt::Debug for IpPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+impl fmt::Display for IpPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}", &self.range.min, self.length)
+    }
+}
+
+impl Serialize for IpPrefix {
+    fn serialize<S>(
+        &self, serializer: S
+    ) -> Result<S::Ok, S::Error> where S: Serializer {
+        self.to_string().serialize(serializer)
+    }
+}
 
 //------------ IpResourceSet -------------------------------------------------
 
-#[derive(Debug)]
 pub struct IpResourceSet {
     included: Vec<IpRange>
 }
@@ -331,7 +367,35 @@ impl FromStr for IpResourceSet {
         }
 
         Ok(IpResourceSet { included })
+    }
+}
 
+impl fmt::Debug for IpResourceSet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+impl fmt::Display for IpResourceSet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut count = 0;
+        let last = self.ranges().len();
+        for range in self.ranges() {
+            count += 1;
+            range.fmt(f)?;
+            if count != last {
+                write!(f, ",")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for IpResourceSet {
+    fn serialize<S>(
+        &self, serializer: S
+    ) -> Result<S::Ok, S::Error> where S: Serializer {
+        self.to_string().serialize(serializer)
     }
 }
 
