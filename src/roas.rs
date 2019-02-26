@@ -78,7 +78,9 @@ impl Roas {
 
         for lres in reader.lines() {
             let line = lres?;
-            if line.starts_with("\"ASN\"") {
+            let line = line.replace("\"", "");
+            let line = line.replace(" ", "");
+            if line.starts_with("ASN") {
                 continue
             }
             let vrp = ValidatedRoaPrefix::from_str(&line)?;
