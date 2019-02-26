@@ -289,17 +289,17 @@ impl Serialize for IpPrefix {
 //------------ IpResourceSet -------------------------------------------------
 
 pub struct IpResourceSet {
-    included: Vec<IpRange>
+    ranges: Vec<IpRange>
 }
 
 impl IpResourceSet {
     pub fn empty() -> Self {
-        IpResourceSet { included: vec![] }
+        IpResourceSet { ranges: vec![] }
     }
 
     // Returns the intersecting IpRanges as the left return value, and non-intersecting as the right.
     fn partition_intersecting(&self, ip_range: IpRange) -> (Vec<IpRange>, Vec<IpRange>) {
-        self.included.iter().partition(|ref i| i.intersects(ip_range))
+        self.ranges.iter().partition(|ref i| i.intersects(ip_range))
     }
 
     pub fn add_ip_range(&mut self, ip_range: IpRange) {
@@ -317,7 +317,7 @@ impl IpResourceSet {
 
         keep.extend(range_to_add);
 
-        self.included = keep;
+        self.ranges = keep;
     }
 
     pub fn remove_ip_range(&mut self, range_to_remove: IpRange) {
@@ -341,11 +341,11 @@ impl IpResourceSet {
             }
         }
 
-        self.included = keep;
+        self.ranges = keep;
     }
 
     pub fn ranges(&self) -> &Vec<IpRange> {
-        &self.included
+        &self.ranges
     }
 }
 
@@ -355,18 +355,18 @@ impl FromStr for IpResourceSet {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let string = s.replace(" ", ""); // rem. whitespace
-        let mut included = vec![];
+        let mut ranges = vec![];
         for s in string.split(',') {
             if s.contains('/') {
                 let pfx = IpPrefix::from_str(s)?;
-                included.push(pfx.range)
+                ranges.push(pfx.range)
             } else {
                 let range = IpRange::from_str(s)?;
-                included.push(range);
+                ranges.push(range);
             }
         }
 
-        Ok(IpResourceSet { included })
+        Ok(IpResourceSet { ranges })
     }
 }
 
@@ -378,12 +378,11 @@ impl fmt::Debug for IpResourceSet {
 
 impl fmt::Display for IpResourceSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut count = 0;
-        let last = self.ranges().len();
-        for range in self.ranges() {
-            count += 1;
-            range.fmt(f)?;
-            if count != last {
+        let len = self.ranges.len();
+        let last = len - 1;
+        for i in 0..len {
+            self.ranges[i].fmt(f)?;
+            if i != last {
                 write!(f, ",")?;
             }
         }
@@ -644,16 +643,16 @@ mod tests {
         let mut set = IpResourceSet::empty();
         set.add_ip_range(range);
 
-        assert_eq!(set.included, vec![range]);
+        assert_eq!(set.ranges, vec![range]);
 
         let intersecting_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
         let expected_combined_range = IpRange::from_str("9.0.0.0-10.0.0.255").unwrap();
         set.add_ip_range(intersecting_start);
-        assert_eq!(set.included, vec![expected_combined_range]);
+        assert_eq!(set.ranges, vec![expected_combined_range]);
 
         let other_range = IpRange::from_str("192.168.0.0-192.168.0.1").unwrap();
         set.add_ip_range(other_range);
-        assert_eq!(set.included, vec![expected_combined_range, other_range]);
+        assert_eq!(set.ranges, vec![expected_combined_range, other_range]);
     }
 
     #[test]
@@ -664,25 +663,25 @@ mod tests {
 
         let intersecting_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
         set.remove_ip_range(intersecting_start);
-        assert_eq!(set.included, vec![IpRange::from_str("10.0.0.1-10.0.0.255").unwrap()]);
+        assert_eq!(set.ranges, vec![IpRange::from_str("10.0.0.1-10.0.0.255").unwrap()]);
 
         let start_left_hand = IpRange::from_str("10.0.0.1-10.0.0.2").unwrap();
         set.remove_ip_range(start_left_hand);
-        assert_eq!(set.included, vec![IpRange::from_str("10.0.0.3-10.0.0.255").unwrap()]);
+        assert_eq!(set.ranges, vec![IpRange::from_str("10.0.0.3-10.0.0.255").unwrap()]);
 
         let middle = IpRange::from_str("10.0.0.10-10.0.0.11").unwrap();
         set.remove_ip_range(middle);
-        assert_eq!(set.included,
+        assert_eq!(set.ranges,
                    vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap(),
                         IpRange::from_str("10.0.0.3-10.0.0.9").unwrap()]);
 
         let exact_match = IpRange::from_str("10.0.0.3-10.0.0.9").unwrap();
         set.remove_ip_range(exact_match);
-        assert_eq!(set.included, vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap()]);
+        assert_eq!(set.ranges, vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap()]);
 
         let encompassing = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
         set.remove_ip_range(encompassing);
-        assert_eq!(set.included, vec![]);
+        assert_eq!(set.ranges, vec![]);
     }
 
     #[test]
