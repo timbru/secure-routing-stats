@@ -15,8 +15,8 @@ You can lean more about Routinator and RPKI technology by reading our documentat
 ### Rust
 
 While some system distributions include Rust as system packages, we rely on a
-relatively new version of Rust. We therefore suggest to use the canonical 
-Rust installation via a tool called rustup.
+Rust version 1.31 or newer. We therefore suggest to use the canonical Rust
+installation via a tool called rustup.
 
 To install rustup and Rust, simply do:
 ```
