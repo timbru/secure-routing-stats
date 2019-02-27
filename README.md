@@ -1,12 +1,12 @@
 # Secure Routing Statistics
 
-This code is intended to help analyse the quality or RPKI ROAs vs BGP.
+Analyse the quality of RPKI ROAs vs BGP.
 
-Similar to these stats, which Tim created in a previous employment:
-https://lirportal.ripe.net/certification/content/static/statistics/world-roas.html
-
-This is still work in progress, and needs some more testing. But, we
-believe this is now mature enough to develop in the open.
+If you have any feedback, we would love to hear from you. Don’t hesitate to
+[create an issue on Github](https://github.com/NLnetLabs/secure-routing-stats/issues/new)
+or post a message on our [RPKI mailing list](https://nlnetlabs.nl/mailman/listinfo/rpki). 
+You can lean more about Routinator and RPKI technology by reading our documentation on 
+[Read the Docs](https://rpki.readthedocs.io/).
 
 ## Getting Started
 
@@ -61,7 +61,7 @@ overall total (using the key 'all'). As input this needs three files:
 
 Default output format is json. Example:
 ```
-$ ./target/release/main world \
+$ ./target/release/secure_routing_stats world \
       --dump test/20181017/riswhoisdump.IPv4 \
       --roas test/20181017/export-roa.csv \
       --stats test/20181017/delegated-extended.txt 
@@ -69,7 +69,7 @@ $ ./target/release/main world \
 
 Alternatively this can produce an world map html file. Example:
 ```
-$ ./target/release/main world \
+$ ./target/release/secure_routing_stats world \
       --dump test/20181017/riswhoisdump.IPv4 \
       --roas test/20181017/export-roa.csv \
       --stats test/20181017/delegated-extended.txt
@@ -84,8 +84,15 @@ separated prefixes and/or ranges.
 
 Example:
 ```
-$ ./target/release/main invalids \
+$ ./target/release/secure_routing_stats invalids \
       --dump test/20181017/riswhoisdump.IPv4 \
       --roas test/20181017/export-roa.csv \
       --scope "193.0.0.0/8,194.0.0.0-194.0.1.3"
 ```
+
+## Unseen report
+
+Produces a report of VRPs for which no current announcement is seen. These 
+VRPs may be stale, i.e. they have not been cleaned up when routing changed, 
+or they may represent authorisations for (back-up) routes not seen in the 
+provided dump.
