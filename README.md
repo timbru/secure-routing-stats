@@ -1,3 +1,5 @@
+[![Travis Build Status](https://travis-ci.com/NLnetLabs/secure-routing-stats.svg?branch=master)](https://travis-ci.com/NLnetLabs/secure-routing-stats)
+
 # Secure Routing Statistics
 
 Analyse the quality of RPKI ROAs vs BGP.
