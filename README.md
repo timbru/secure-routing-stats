@@ -61,6 +61,17 @@ overall total (using the key 'all'). As input this needs three files:
 * roas.csv
 * NRO delegated extended statistics
 
+RIS dump files may be found [here](http://www.ris.ripe.net/dumps/). The roas.csv format of either
+[routinator](https://github.com/NLnetLabs/routinator) or 
+[RIPE NCC RPKI Validator](https://github.com/ripE-NCC/rpki-validator-3) are supported. Delegated
+stats can be found [here]((https://www.nro.net/wp-content/uploads/apnic-uploads/delegated-extended).
+
+You can also use your own files of course, e.g. if you want to hypothesise about the impact of
+potential announcements and/or roas, as long as you follow the same format. Beware that you will
+need to use a value of '5' or higher for the number of RIS peers, otherwise the announcement is
+disregarded.
+
+
 Default output format is json. Example:
 ```
 $ ./target/release/secure_routing_stats world \
