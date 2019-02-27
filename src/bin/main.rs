@@ -12,6 +12,7 @@ use secure_routing_stats::report::{
     WorldStatsOpts,
     WorldStatsReport
 };
+use secure_routing_stats::report::UnseenReport;
 
 
 fn main() {
@@ -28,6 +29,9 @@ fn main() {
                 Options::Invalids(opts) => {
                     InvalidsReport::execute(&opts)
                 }
+                Options::Unseen(opts) => {
+                    UnseenReport::execute(&opts)
+                }
             };
             match res {
                 Ok(()) => {},
@@ -42,7 +46,8 @@ fn main() {
 
 enum Options {
     WorldStats(WorldStatsOpts),
-    Invalids(InvalidsOpts)
+    Invalids(InvalidsOpts),
+    Unseen(InvalidsOpts)
 }
 
 impl Options {
@@ -50,6 +55,7 @@ impl Options {
         let matches = App::new("NLnet Labs RRDP Server")
             .version("0.1b")
             .subcommand(SubCommand::with_name("world")
+                .about("Report ROA quality on a per country basis")
                 .arg(Arg::with_name("dump")
                     .short("d")
                     .long("dump")
@@ -76,6 +82,28 @@ impl Options {
                     .required(false))
             )
             .subcommand(SubCommand::with_name("invalids")
+                .about("Report invalid announcements")
+                .arg(Arg::with_name("dump")
+                    .short("d")
+                    .long("dump")
+                    .value_name("FILE")
+                    .help("Route announcements dump file.")
+                    .required(true))
+                .arg(Arg::with_name("roas")
+                    .short("r")
+                    .long("roas")
+                    .value_name("FILE")
+                    .help("ROAs CSV file.")
+                    .required(true))
+                .arg(Arg::with_name("scope")
+                    .short("s")
+                    .long("scope")
+                    .value_name("comma separated prefixes/ranges")
+                    .help("Optional scope for invalid report. Default: all")
+                    .required(false))
+            )
+            .subcommand(SubCommand::with_name("unseen")
+                .about("Report VRPs for which no valid announcement is seen")
                 .arg(Arg::with_name("dump")
                     .short("d")
                     .long("dump")
@@ -97,10 +125,12 @@ impl Options {
             )
             .get_matches();
 
-        if let Some(world) = matches.subcommand_matches("world") {
-            Ok(Options::WorldStats(WorldStatsOpts::parse(world)?))
-        } else if let Some(invalids) = matches.subcommand_matches("invalids") {
-            Ok(Options::Invalids(InvalidsOpts::parse(invalids)?))
+        if let Some(opts) = matches.subcommand_matches("world") {
+            Ok(Options::WorldStats(WorldStatsOpts::parse(opts)?))
+        } else if let Some(opts) = matches.subcommand_matches("invalids") {
+            Ok(Options::Invalids(InvalidsOpts::parse(opts)?))
+        } else if let Some(opts) = matches.subcommand_matches("unseen") {
+            Ok(Options::Unseen(InvalidsOpts::parse(opts)?))
         } else {
             Err(Error::msg("No sub-command given. See --help for options."))
         }

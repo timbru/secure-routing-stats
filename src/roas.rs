@@ -17,33 +17,33 @@ use crate::ip::IpRangeTreeBuilder;
 
 //------------ ValidatedRoaPrefix --------------------------------------------
 
-#[derive(Clone, Debug)]
-pub struct ValidatedRoaPrefix {
+#[derive(Clone, Debug, Serialize)]
+pub struct ValidatedRoaPayload {
     asn: Asn,
     prefix: IpPrefix,
     max_length: u8
 }
 
-impl ValidatedRoaPrefix {
+impl ValidatedRoaPayload {
     pub fn asn(&self) -> &Asn { &self.asn }
     pub fn prefix(&self) -> &IpPrefix { &self.prefix }
     pub fn max_length(&self) -> u8 { self.max_length }
 }
 
-impl ValidatedRoaPrefix {
+impl ValidatedRoaPayload {
     pub fn contains(&self, range: &IpRange) -> bool {
         self.prefix.as_ref().contains(&range.to_range())
     }
 }
 
 
-impl AsRef<IpRange> for ValidatedRoaPrefix {
+impl AsRef<IpRange> for ValidatedRoaPayload {
     fn as_ref(&self) -> &IpRange {
         self.prefix.as_ref()
     }
 }
 
-impl FromStr for ValidatedRoaPrefix {
+impl FromStr for ValidatedRoaPayload {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -60,14 +60,14 @@ impl FromStr for ValidatedRoaPrefix {
         let length_str = values.next().ok_or(Error::MissingColumn)?;
         let max_length = u8::from_str(length_str)?;
 
-        Ok(ValidatedRoaPrefix { asn, prefix, max_length })
+        Ok(ValidatedRoaPayload { asn, prefix, max_length })
     }
 }
 
 
 //------------ Roas ----------------------------------------------------------
 
-pub type Roas = IpRangeTree<ValidatedRoaPrefix>;
+pub type Roas = IpRangeTree<ValidatedRoaPayload>;
 
 impl Roas {
     pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
@@ -83,7 +83,7 @@ impl Roas {
             if line.starts_with("ASN") {
                 continue
             }
-            let vrp = ValidatedRoaPrefix::from_str(&line)?;
+            let vrp = ValidatedRoaPayload::from_str(&line)?;
             builder.add(vrp);
         };
 

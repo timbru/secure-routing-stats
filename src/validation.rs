@@ -1,5 +1,5 @@
 use crate::announcements::Announcement;
-use crate::roas::ValidatedRoaPrefix;
+use crate::roas::ValidatedRoaPayload;
 
 
 //------------ ValidationState ----------------------------------------------
@@ -28,7 +28,7 @@ impl ValidatedAnnouncement {
 
     fn derive_state(
         ann: &Announcement,
-        vrps: &[&ValidatedRoaPrefix]
+        vrps: &[&ValidatedRoaPayload]
     ) -> ValidationState {
         let mut state = ValidationState::NotFound;
 
@@ -56,13 +56,37 @@ impl ValidatedAnnouncement {
     /// Creates a validated announcement for the referenced announcement, and
     /// validated roa prefixes. Takes references because this stuff is kept
     /// in immutable IntervalTree structures.
-    pub fn create(ann: &Announcement, vrps: &[&ValidatedRoaPrefix]) -> Self {
+    pub fn create(ann: &Announcement, vrps: &[&ValidatedRoaPayload]) -> Self {
         let state = Self::derive_state(ann, vrps);
 
         ValidatedAnnouncement {
             announcement: ann.clone(),
             state
         }
+    }
+}
+
+
+//------------ RoaImpact -----------------------------------------------------
+
+pub struct VrpImpact {
+    stale: bool
+}
+
+impl VrpImpact {
+    pub fn evaluate(vrp: &ValidatedRoaPayload, anns: &[&Announcement]) -> Self {
+        for ann in anns {
+            if vrp.asn() == ann.asn()
+               && vrp.contains(ann.prefix().as_ref())
+               && vrp.max_length() >= ann.prefix().length() {
+                return VrpImpact { stale: false }
+            }
+        }
+        VrpImpact { stale: true }
+    }
+
+    pub fn is_stale(&self) -> bool {
+        self.stale
     }
 }
 
@@ -75,8 +99,8 @@ mod tests {
     use super::*;
     use std::str::FromStr;
 
-    fn vrp(s: &str) -> ValidatedRoaPrefix {
-        ValidatedRoaPrefix::from_str(s).unwrap()
+    fn vrp(s: &str) -> ValidatedRoaPayload {
+        ValidatedRoaPayload::from_str(s).unwrap()
     }
 
     fn ann(s: &str) -> Announcement {
@@ -128,5 +152,17 @@ mod tests {
             );
             assert_eq!(&ValidationState::Valid, validated.state());
         }
+    }
+
+    #[test]
+    fn should_detect_staleness() {
+        let vrp_current = vrp("AS65000, 192.168.0.0/20, 20");
+        let vrp_stale   = vrp("AS65000, 192.168.16.0/20, 20");
+
+        let ann1 = ann("65000, 192.168.0.0/20");
+        let ann2 = ann("65000, 192.168.16.0/24");
+
+        assert!(!VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]).is_stale());
+        assert!(VrpImpact::evaluate(&vrp_stale, &[&ann1, &ann2]).is_stale());
     }
 }

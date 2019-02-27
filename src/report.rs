@@ -12,9 +12,10 @@ use crate::ip::IpRangeTree;
 use crate::ip::IpResourceSet;
 use crate::ip::IpRespourceSetError;
 use crate::roas::Roas;
-use crate::roas::ValidatedRoaPrefix;
+use crate::roas::ValidatedRoaPayload;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
+use validation::VrpImpact;
 
 
 //------------ CountryStat --------------------------------------------------
@@ -215,7 +216,7 @@ impl WorldStatsReport {
         let announcements: IpRangeTree<Announcement> =
             RisAnnouncements::from_file(&options.dump).unwrap();
 
-        let roas: IpRangeTree<ValidatedRoaPrefix> =
+        let roas: IpRangeTree<ValidatedRoaPayload> =
             Roas::from_file(&options.roas).unwrap();
 
         let delegations: IpRangeTree<IpDelegation> =
@@ -307,10 +308,13 @@ impl InvalidsOpts {
     }
 }
 
+
+//------------ InvalidsReport ------------------------------------------------
+
 /// Used to report invalids, perhaps unsurprisingly.
 pub struct InvalidsReport {
     announcements: IpRangeTree<Announcement>,
-    roas: IpRangeTree<ValidatedRoaPrefix>
+    roas: IpRangeTree<ValidatedRoaPayload>
 }
 
 impl InvalidsReport {
@@ -319,7 +323,7 @@ impl InvalidsReport {
         let announcements: IpRangeTree<Announcement> =
             RisAnnouncements::from_file(&options.dump).unwrap();
 
-        let roas: IpRangeTree<ValidatedRoaPrefix> =
+        let roas: IpRangeTree<ValidatedRoaPayload> =
             Roas::from_file(&options.roas).unwrap();
 
         let report = InvalidsReport { announcements, roas};
@@ -364,6 +368,9 @@ impl InvalidsReport {
     }
 }
 
+
+//------------ InvalidsResult ------------------------------------------------
+
 #[derive(Clone, Debug, Serialize)]
 struct InvalidsResult {
     totals: InvalidsResultTotals,
@@ -389,6 +396,9 @@ impl InvalidsResult {
         }
     }
 }
+
+
+//------------ InvalidsResultTotals ------------------------------------------
 
 #[derive(Clone, Debug, Serialize)]
 struct InvalidsResultTotals {
@@ -419,6 +429,79 @@ impl InvalidsResultTotals {
         }
     }
 }
+
+
+//------------ StalenessReport ----------------------------------------------
+
+pub struct UnseenReport {
+    announcements: IpRangeTree<Announcement>,
+    roas: IpRangeTree<ValidatedRoaPayload>
+}
+
+impl UnseenReport {
+    pub fn execute(options: &InvalidsOpts) -> Result<(), Error> {
+        let announcements: IpRangeTree<Announcement> =
+            RisAnnouncements::from_file(&options.dump).unwrap();
+
+        let roas: IpRangeTree<ValidatedRoaPayload> =
+            Roas::from_file(&options.roas).unwrap();
+
+        let report = UnseenReport { announcements, roas };
+        let res = report.verify(&options.scope);
+
+        println!("{}", serde_json::to_string(&res)?);
+        Ok(())
+    }
+
+    fn verify(&self, scope: &Option<IpResourceSet>) -> UnseenReportResult {
+        let mut res = UnseenReportResult::default();
+        match scope {
+            None => {
+                for vrp in self.roas.all() {
+                    res.add(vrp, &self.verify_vrp(vrp));
+                }
+            },
+            Some(set) => {
+                for range in set.ranges() {
+                    for vrp in self.roas.matching_or_more_specific(range) {
+                        res.add(vrp, &self.verify_vrp(vrp));
+                    }
+                }
+            }
+        }
+        res
+    }
+
+    fn verify_vrp(&self, vrp: &ValidatedRoaPayload) -> VrpImpact {
+        let anns = self.announcements
+                        .matching_or_more_specific(vrp.prefix().as_ref());
+
+        VrpImpact::evaluate(vrp, &anns)
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct UnseenReportResult {
+    total_vrps: usize,
+    stale: Vec<ValidatedRoaPayload>
+}
+
+impl Default for UnseenReportResult {
+    fn default() -> Self {
+        UnseenReportResult { total_vrps: 0, stale: vec![] }
+    }
+}
+
+impl UnseenReportResult {
+    pub fn add(&mut self, vrp: &ValidatedRoaPayload, impact: &VrpImpact) {
+        self.total_vrps += 1;
+        if impact.is_stale() {
+            self.stale.push(vrp.clone())
+        }
+    }
+}
+
+
 
 
 //------------ Error --------------------------------------------------------
