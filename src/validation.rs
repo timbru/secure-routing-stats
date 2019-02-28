@@ -1,5 +1,7 @@
 use crate::announcements::Announcement;
 use crate::roas::ValidatedRoaPayload;
+use std::fmt::Display;
+use std::fmt;
 
 
 //------------ ValidationState ----------------------------------------------
@@ -10,6 +12,19 @@ pub enum ValidationState {
     InvalidAsn,
     InvalidLength,
     NotFound
+}
+
+impl Display for ValidationState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let msg = match self {
+            ValidationState::Valid => "valid",
+            ValidationState::InvalidAsn => "invalid asn",
+            ValidationState::InvalidLength => "invalid length",
+            ValidationState::NotFound => "not found"
+        };
+
+        write!(f, "{}", msg)
+    }
 }
 
 
@@ -63,6 +78,18 @@ impl ValidatedAnnouncement {
             announcement: ann.clone(),
             state
         }
+    }
+}
+
+impl Display for ValidatedAnnouncement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {} {}",
+            self.announcement.asn(),
+            self.announcement.prefix(),
+            self.state
+        )
     }
 }
 

@@ -415,11 +415,17 @@ impl WorldStatsReport {
 
 //------------ InvalidsOpts -------------------------------------------------
 
+enum InvalidsFormat {
+    Json,
+    Text
+}
+
 /// Defines options for the invalids report
 pub struct InvalidsOpts {
     dump: PathBuf,
     roas: PathBuf,
-    scope: Option<IpResourceSet>
+    scope: Option<IpResourceSet>,
+    format: InvalidsFormat
 }
 
 impl InvalidsOpts {
@@ -438,7 +444,20 @@ impl InvalidsOpts {
             }
         };
 
-        Ok(InvalidsOpts { dump, roas, scope })
+        let format = {
+            if let Some(format) = matches.value_of("format") {
+                match format {
+                    "json" => InvalidsFormat::Json,
+                    "text" => InvalidsFormat::Text,
+                    f => return Err(Error::WithMessage(
+                        format!("Unsupported format: {}. Supported are: json|text", f)))
+                }
+            } else {
+                InvalidsFormat::Json
+            }
+        };
+
+        Ok(InvalidsOpts { dump, roas, scope, format })
     }
 }
 
@@ -467,7 +486,10 @@ impl InvalidsReport {
             Some(set) => report.report_set(set)
         };
 
-        println!("{}", serde_json::to_string(&res)?);
+        match options.format {
+            InvalidsFormat::Json => println!("{}", serde_json::to_string(&res)?),
+            InvalidsFormat::Text => println!("{}", res)
+        }
 
         Ok(())
     }
@@ -528,6 +550,23 @@ impl InvalidsResult {
             ValidationState::InvalidAsn    => self.invalids.push(ann),
             _ => {}
         }
+    }
+}
+
+
+impl Display for InvalidsResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Totals:")?;
+        writeln!(f, "  valid: {}", self.totals.valid)?;
+        writeln!(f, "  invalid length: {}", self.totals.invalid_length)?;
+        writeln!(f, "  invalid asn: {}", self.totals.invalid_asn)?;
+        writeln!(f, "  not found: {}", self.totals.not_found)?;
+        writeln!(f)?;
+        writeln!(f, "Invalids:")?;
+        for ann in &self.invalids {
+            writeln!(f, "  {}", ann)?;
+        }
+        Ok(())
     }
 }
 
