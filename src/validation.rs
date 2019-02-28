@@ -70,7 +70,7 @@ impl ValidatedAnnouncement {
 //------------ RoaImpact -----------------------------------------------------
 
 pub struct VrpImpact {
-    stale: bool
+    unseen: bool
 }
 
 impl VrpImpact {
@@ -79,14 +79,14 @@ impl VrpImpact {
             if vrp.asn() == ann.asn()
                && vrp.contains(ann.prefix().as_ref())
                && vrp.max_length() >= ann.prefix().length() {
-                return VrpImpact { stale: false }
+                return VrpImpact { unseen: false }
             }
         }
-        VrpImpact { stale: true }
+        VrpImpact { unseen: true }
     }
 
-    pub fn is_stale(&self) -> bool {
-        self.stale
+    pub fn is_unseen(&self) -> bool {
+        self.unseen
     }
 }
 
@@ -162,7 +162,7 @@ mod tests {
         let ann1 = ann("65000, 192.168.0.0/20");
         let ann2 = ann("65000, 192.168.16.0/24");
 
-        assert!(!VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]).is_stale());
-        assert!(VrpImpact::evaluate(&vrp_stale, &[&ann1, &ann2]).is_stale());
+        assert!(!VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]).is_unseen());
+        assert!(VrpImpact::evaluate(&vrp_stale, &[&ann1, &ann2]).is_unseen());
     }
 }

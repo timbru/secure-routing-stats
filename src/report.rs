@@ -15,7 +15,8 @@ use crate::roas::Roas;
 use crate::roas::ValidatedRoaPayload;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
-use validation::VrpImpact;
+use crate::validation::VrpImpact;
+use ip::IpRange;
 
 
 //------------ CountryStat --------------------------------------------------
@@ -26,15 +27,25 @@ pub struct CountryStat {
     routes_inv_l: usize,
     routes_inv_a: usize,
     routes_not_f: usize,
+    vrps_seen: usize,
+    vrps_unseen: usize
 }
 
 impl CountryStat {
-    pub fn add(&mut self, ann: &ValidatedAnnouncement) {
+    pub fn add_ann(&mut self, ann: &ValidatedAnnouncement) {
         match ann.state() {
             ValidationState::Valid         => self.routes_valid += 1,
             ValidationState::InvalidLength => self.routes_inv_l += 1,
             ValidationState::InvalidAsn    => self.routes_inv_a += 1,
             ValidationState::NotFound      => self.routes_not_f += 1,
+        }
+    }
+
+    pub fn add_impact(&mut self, impact: &VrpImpact) {
+        if impact.is_unseen() {
+            self.vrps_unseen += 1;
+        } else {
+            self.vrps_seen += 1;
         }
     }
 
@@ -60,7 +71,6 @@ impl CountryStat {
         } else {
             None
         }
-
     }
 }
 
@@ -70,7 +80,9 @@ impl Default for CountryStat {
             routes_valid: 0,
             routes_inv_l: 0,
             routes_inv_a: 0,
-            routes_not_f: 0
+            routes_not_f: 0,
+            vrps_seen: 0,
+            vrps_unseen: 0
         }
     }
 }
@@ -92,21 +104,22 @@ impl Default for CountryStats {
 
 impl CountryStats {
 
+    fn get_cc(&mut self, cc: &str) -> &mut CountryStat {
+        self.stats.entry(cc.to_string()).or_insert_with(CountryStat::default)
+    }
+
     /// Adds a ValidatedAnnouncement to the stats for the given country code.
     /// Also adds this to the overall 'all' countries category.
-    pub fn add(&mut self, ann: &ValidatedAnnouncement, cc: &str) {
-        {
-            let cc = cc.to_string();
-            let stat = self.stats.entry(cc)
-                .or_insert_with(CountryStat::default);
-            stat.add(ann);
-        }
+    pub fn add_ann(&mut self, ann: &ValidatedAnnouncement, cc: &str) {
+        self.get_cc(cc).add_ann(ann);
+        self.get_cc("all").add_ann(ann);
+    }
 
-        {
-            let all_stat = self.stats.entry("all".to_string())
-                .or_insert_with(CountryStat::default);
-            all_stat.add(ann);
-        }
+    /// Adds a ValidatedAnnouncement to the stats for the given country code.
+    /// Also adds this to the overall 'all' countries category.
+    pub fn add_impact(&mut self, imp: &VrpImpact, cc: &str) {
+        self.get_cc(cc).add_impact(imp);
+        self.get_cc("all").add_impact(imp);
     }
 
     /// Returns an adoption array string of country codes to percentages of
@@ -230,15 +243,21 @@ impl WorldStatsReport {
 
                 let matching_roas = roas.matching_or_less_specific(ann.as_ref());
                 let validated = ValidatedAnnouncement::create(ann, &matching_roas);
+                let cc = Self::find_cc(&delegations, ann.as_ref());
 
-                let matching_delegations = delegations.matching_or_less_specific(ann.as_ref());
+                country_stats.add_ann(&validated, cc);
+            }
+        }
 
-                let cc = match matching_delegations.first() {
-                    Some(delegation) => &delegation.cc(),
-                    None => "XX"
-                };
+        for vrps in roas.inner().iter() {
+            for vrp in &vrps.value {
+                let anns = announcements.matching_or_more_specific(
+                    vrp.prefix().as_ref());
 
-                country_stats.add(&validated, cc);
+                let impact = VrpImpact::evaluate(&vrp, &anns);
+                let cc = Self::find_cc(&delegations, vrp.prefix().as_ref());
+
+                country_stats.add_impact(&impact, cc);
             }
         }
 
@@ -248,6 +267,19 @@ impl WorldStatsReport {
         }
 
         Ok(())
+    }
+
+    fn find_cc<'a>(
+        delegations: &'a IpRangeTree<IpDelegation>,
+        range: &IpRange
+    ) -> &'a str {
+        let matching_delegations = delegations
+            .matching_or_less_specific(range);
+
+        match matching_delegations.first() {
+            Some(delegation) => &delegation.cc(),
+            None => "XX"
+        }
     }
 
     fn json(stats: &CountryStats) -> Result<(), Error> {
@@ -495,7 +527,7 @@ impl Default for UnseenReportResult {
 impl UnseenReportResult {
     pub fn add(&mut self, vrp: &ValidatedRoaPayload, impact: &VrpImpact) {
         self.total_vrps += 1;
-        if impact.is_stale() {
+        if impact.is_unseen() {
             self.stale.push(vrp.clone())
         }
     }
