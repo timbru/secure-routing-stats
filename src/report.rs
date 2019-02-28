@@ -72,6 +72,15 @@ impl CountryStat {
             None
         }
     }
+
+    pub fn f_seen(&self) -> Option<f32> {
+        let total = self.vrps_seen + self.vrps_unseen;
+        if total > 0 {
+            Some((self.vrps_seen * 10000 / total) as f32 / 100.)
+        } else {
+            None
+        }
+    }
 }
 
 impl Default for CountryStat {
@@ -161,6 +170,20 @@ impl CountryStats {
             if cc != "all" {
                 if let Some(quality) = cs.f_quality() {
                     writeln!(&mut s, "          ['{}', {}],", cc, quality).unwrap();
+                }
+            }
+        }
+        s
+    }
+
+    pub fn vrps_unseen_array(&self) -> String {
+        let mut s = String::new();
+
+        for cc in self.stats.keys() {
+            let cs = &self.stats[&cc.to_string()];
+            if cc != "all" {
+                if let Some(seen) = cs.f_seen() {
+                    writeln!(&mut s, "          ['{}', {}],", cc, seen).unwrap();
                 }
             }
         }
@@ -303,6 +326,11 @@ impl WorldStatsReport {
         let html = html.replace(
             "***COUNTRY_PREFIXES_QUALITY***",
             &stats.quality_array()
+        );
+
+        let html = html.replace(
+            "***COUNTRY_VRPS_UNSEEN***",
+            &stats.vrps_unseen_array()
         );
 
         println!("{}", html);

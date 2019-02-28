@@ -84,7 +84,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         prefixes_valid_chart.draw(prefixes_valid_data, prefixes_valid_options);
 
         // Prefixes BGP matching
-
         var prefixes_matching_data = google.visualization.arrayToDataTable([
           ['Country', '%'],
 ***COUNTRY_PREFIXES_QUALITY***
@@ -99,6 +98,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
         var prefixes_matching_chart = new google.visualization.GeoChart(document.getElementById('prefixes_matching_worldmap'));
         prefixes_matching_chart.draw(prefixes_matching_data, prefixes_matching_options);
+
+
+          // VRPs unseen fraction
+          var vrps_unseen_data = google.visualization.arrayToDataTable([
+                  ['Country', '%'],
+***COUNTRY_VRPS_UNSEEN***
+      ]);
+
+          var vrps_unseen_options = {
+              width: 900,
+              keepAspectRatio: true,
+              title: 'Prefixes ROAs matching actual BGP',
+              colorAxis: { colors:['#fd2323', '#ed9200', '#e4d417', '#95c12d'], values:[0,100] }
+          };
+
+          var vrps_unseen_chart = new google.visualization.GeoChart(document.getElementById('vrps_unseen_worldmap'));
+          vrps_unseen_chart.draw(vrps_unseen_data, vrps_unseen_options);
 
       };
 
@@ -115,6 +131,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                     } else if ($(this).attr("value")=="pmw") {
                         $(".graph").not(".pmw").hide();
                         $(".pmw").show();
+                    } else if ($(this).attr("value")=="vrp") {
+                        $(".graph").not(".vrp").hide();
+                        $(".vrp").show();
                     } else { // default
                         $(".graph").not(".paw").hide();
                         $(".saw").show();
@@ -134,9 +153,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <div id="content">
             <p>Select a graph:
                 <select id="type_select_selector">
-                    <option value="paw">IPv4 prefixes covered</option>
-                    <option value="pvw">IPv4 prefixes valid</option>
-                    <option value="pmw">IPv4 prefixes valid as fraction of covered</option>
+                    <option value="paw">prefixes covered</option>
+                    <option value="pvw">prefixes valid</option>
+                    <option value="pmw">prefixes valid as fraction of covered</option>
+                    <option value="vrp">fraction vrps unseen</option>
                 </select>
             </p>
 
@@ -150,6 +170,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
             <div id="prefixes_matching" class="graph pmw">
                 <div id="prefixes_matching_worldmap"></div>
+            </div>
+
+            <div id="vrps_unseen" class="graph vrp">
+                <div id="vrps_unseen_worldmap"></div>
             </div>
 
         </div>
