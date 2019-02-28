@@ -19,11 +19,12 @@ use crate::roas::ValidatedRoaPayload;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
+use std::cmp::Ordering;
 
 
 //------------ CountryStat --------------------------------------------------
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CountryStat {
     routes_valid: usize,
     routes_inv_l: usize,
@@ -220,11 +221,38 @@ impl Display for CountryStats {
         writeln!(f, "  {}", &self.stats["all"])?;
         writeln!(f)?;
         writeln!(f, "Per country:")?;
-        for (cc, stat) in self.stats.iter() {
-            if cc != "all" {
-                writeln!(f, "{}: {}", cc, stat)?;
+
+        #[derive(Eq, PartialEq)]
+        struct CountryStatWithCode<'a> {
+            cc: &'a str,
+            stat: &'a CountryStat
+        }
+
+        impl<'a> Ord for CountryStatWithCode<'a> {
+            fn cmp(&self, other: &Self) -> Ordering {
+                self.cc.cmp(other.cc)
             }
         }
+
+        impl<'a> PartialOrd for CountryStatWithCode<'a> {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        let mut countries: Vec<CountryStatWithCode> = vec![];
+
+        for (cc, stat) in self.stats.iter() {
+            if cc != "all" {
+                countries.push(CountryStatWithCode { cc, stat });
+            }
+        }
+
+        countries.sort();
+        for country in countries {
+            writeln!(f, "{}: {}", country.cc, country.stat)?;
+        }
+
         Ok(())
     }
 }
