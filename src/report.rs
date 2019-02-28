@@ -1,5 +1,7 @@
 //! Reporting of the stats found
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
 use std::fmt::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -8,6 +10,7 @@ use crate::announcements::Announcement;
 use crate::announcements::RisAnnouncements;
 use crate::delegations::IpDelegation;
 use crate::delegations::IpDelegations;
+use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpResourceSet;
 use crate::ip::IpRespourceSetError;
@@ -16,7 +19,6 @@ use crate::roas::ValidatedRoaPayload;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
-use ip::IpRange;
 
 
 //------------ CountryStat --------------------------------------------------
@@ -96,6 +98,25 @@ impl Default for CountryStat {
     }
 }
 
+impl Display for CountryStat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+"Valid: {}, \
+Invalid Length: {}, \
+Invalid ASN: {}, \
+Not Found: {}, \
+VRPS seen: {}, \
+VRPS unseen: {}",
+            self.routes_valid,
+            self.routes_inv_l,
+            self.routes_inv_a,
+            self.routes_not_f,
+            self.vrps_seen,
+            self.vrps_unseen
+        )
+    }
+}
+
 
 //------------ CountryStats -------------------------------------------------
 
@@ -107,7 +128,9 @@ pub struct CountryStats {
 
 impl Default for CountryStats {
     fn default() -> Self {
-        CountryStats { stats: HashMap::new() }
+        let mut stats = HashMap::new();
+        stats.insert("all".to_string(), CountryStat::default());
+        CountryStats { stats }
     }
 }
 
@@ -191,6 +214,21 @@ impl CountryStats {
     }
 }
 
+impl Display for CountryStats {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Overall")?;
+        writeln!(f, "  {}", &self.stats["all"])?;
+        writeln!(f)?;
+        writeln!(f, "Per country:")?;
+        for (cc, stat) in self.stats.iter() {
+            if cc != "all" {
+                writeln!(f, "{}: {}", cc, stat)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 //------------ WorldStatsOpts -----------------------------------------------
 
 /// Options for the WorldStatsReport
@@ -218,8 +256,9 @@ impl WorldStatsOpts {
                 match format {
                     "json" => WorldStatsFormat::Json,
                     "html" => WorldStatsFormat::Html,
+                    "text" => WorldStatsFormat::Text,
                     f => return Err(Error::WithMessage(
-                        format!("Unsupported format: {}", f)))
+                        format!("Unsupported format: {}. Supported are: json|html|text", f)))
                 }
             } else {
                 WorldStatsFormat::Json
@@ -236,7 +275,8 @@ impl WorldStatsOpts {
 /// Output format. The HTML uses the template in ['templates/world.html'].
 pub enum WorldStatsFormat {
     Json,
-    Html
+    Html,
+    Text
 }
 
 
@@ -286,7 +326,8 @@ impl WorldStatsReport {
 
         match options.format {
             WorldStatsFormat::Json => Self::json(&country_stats)?,
-            WorldStatsFormat::Html => Self::html(&country_stats)?
+            WorldStatsFormat::Html => Self::html(&country_stats)?,
+            WorldStatsFormat::Text => Self::text(&country_stats)
         }
 
         Ok(())
@@ -336,6 +377,11 @@ impl WorldStatsReport {
         println!("{}", html);
         Ok(())
     }
+
+    fn text(stats: &CountryStats) {
+        println!("{}", stats);
+    }
+
 }
 
 
