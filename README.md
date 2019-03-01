@@ -22,7 +22,14 @@ To install rustup and Rust, simply do:
 ```
 curl https://sh.rustup.rs -sSf | sh
 ```
-Alternatively, get the file, have a look and then run it manually. Follow the instructions to get rustup and cargo, the rust build tool, into your path.
+
+Note that this will also add your ```$HOME/.cargo/bin``` to your ```$PATH``` 
+and profile, allowing to find Rust commands such as ```cargo```, ```rustc``` 
+and ```rustup```. Furthermore this is where the ```cargo install``` command 
+will put binaries that you build locally.
+
+Alternatively, get the file, have a look and then run it manually. Follow the
+instructions to get rustup and cargo, the rust build tool, into your path.
 
 You can update your Rust installation later by simply running:
 ```
@@ -41,16 +48,12 @@ there’s a complaint about missing input files, you are probably good to go.
 Checkout this source code and then make a release binary:
 
 ```
-cargo build --release
+cargo install --force
 ```
 
-This takes some time, especially the first time when it also compiles all the
-dependencies of this code. But the resulting binary is much faster. And you 
-really want this binary to be fast when you process 800k announcements.
-
-For reference doing a full report of invalids, discarding the output of 
-course so as to obtain some even more flattering stats, takes 1.8 seconds on 
-a 2017 mac book pro (i7 3.1GHz).
+The ```--force``` flag is not needed the first time you install this, but if 
+you had installed a previous version, this will ensure that it's updated. So,
+ we recommend that you just use ```--force``` here. 
 
 ## Per country stats
 
@@ -89,6 +92,16 @@ $ ./target/release/secure_routing_stats world \
       --format html
 ```
 
+Finally, you can also get a simple text output:
+```
+$ ./target/release/secure_routing_stats world \
+      --dump test/20181017/riswhoisdump.IPv4 \
+      --roas test/20181017/export-roa.csv \
+      --stats test/20181017/delegated-extended.txt
+      --format text
+```
+
+
 ## Invalids reports
 
 Produces a detailed report of invalids for some address space. Defaults to all
@@ -103,9 +116,25 @@ $ ./target/release/secure_routing_stats invalids \
       --scope "193.0.0.0/8,194.0.0.0-194.0.1.3"
 ```
 
-## Unseen report
+By default this produces JSON output. But you can use ```--format text``` to 
+get a human readable report.
 
-Produces a report of VRPs for which no current announcement is seen. These 
-VRPs may be stale, i.e. they have not been cleaned up when routing changed, 
-or they may represent authorisations for (back-up) routes not seen in the 
-provided dump.
+
+## Validated ROA Payloads seen
+
+Produces a report of Validated ROA Payloads (VRPs) visibility in BGP. VRPs 
+for which at least one valid announcement exists are considered 'seen'. Note 
+that a single VRP may have many valid announcements, because of max length. 
+VRPs for which no valid announcements are seen, are considered 'unseen'. 
+
+If a VRP is 'unseen', this may be because these VRPs are stale, e.g. they are
+no longer needed. But, it may also be that these VRPs serve to authorise 
+back-up or future announcements.   
+
+Example:
+```
+$ ./target/release/secure_routing_stats seen \
+      --dump test/20181017/riswhoisdump.IPv4 \
+      --roas test/20181017/export-roa.csv \
+      --scope "193.0.0.0/8,194.0.0.0-194.0.1.3"
+```

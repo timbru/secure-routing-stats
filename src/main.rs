@@ -29,7 +29,7 @@ fn main() {
                 Options::Invalids(opts) => {
                     InvalidsReport::execute(&opts)
                 }
-                Options::Unseen(opts) => {
+                Options::Seen(opts) => {
                     SeenReport::execute(&opts)
                 }
             };
@@ -47,7 +47,7 @@ fn main() {
 enum Options {
     WorldStats(WorldStatsOpts),
     Invalids(InvalidsOpts),
-    Unseen(InvalidsOpts)
+    Seen(InvalidsOpts)
 }
 
 impl Options {
@@ -135,8 +135,8 @@ impl Options {
             Ok(Options::WorldStats(WorldStatsOpts::parse(opts)?))
         } else if let Some(opts) = matches.subcommand_matches("invalids") {
             Ok(Options::Invalids(InvalidsOpts::parse(opts)?))
-        } else if let Some(opts) = matches.subcommand_matches("unseen") {
-            Ok(Options::Unseen(InvalidsOpts::parse(opts)?))
+        } else if let Some(opts) = matches.subcommand_matches("seen") {
+            Ok(Options::Seen(InvalidsOpts::parse(opts)?))
         } else {
             Err(Error::msg("No sub-command given. See --help for options."))
         }
