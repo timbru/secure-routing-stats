@@ -12,7 +12,7 @@ use secure_routing_stats::report::{
     WorldStatsOpts,
     WorldStatsReport
 };
-use secure_routing_stats::report::UnseenReport;
+use secure_routing_stats::report::SeenReport;
 
 
 fn main() {
@@ -30,7 +30,7 @@ fn main() {
                     InvalidsReport::execute(&opts)
                 }
                 Options::Unseen(opts) => {
-                    UnseenReport::execute(&opts)
+                    SeenReport::execute(&opts)
                 }
             };
             match res {
@@ -108,8 +108,8 @@ impl Options {
                     .help("Specify output format, defaults to json")
                     .required(false))
             )
-            .subcommand(SubCommand::with_name("unseen")
-                .about("Report VRPs for which no valid announcement is seen")
+            .subcommand(SubCommand::with_name("seen")
+                .about("Report VRP visibility in BGP")
                 .arg(Arg::with_name("dump")
                     .short("d")
                     .long("dump")

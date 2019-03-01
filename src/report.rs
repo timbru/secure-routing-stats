@@ -200,7 +200,7 @@ impl CountryStats {
         s
     }
 
-    pub fn vrps_unseen_array(&self) -> String {
+    pub fn vrps_f_seen_array(&self) -> String {
         let mut s = String::new();
 
         for cc in self.stats.keys() {
@@ -398,8 +398,8 @@ impl WorldStatsReport {
         );
 
         let html = html.replace(
-            "***COUNTRY_VRPS_UNSEEN***",
-            &stats.vrps_unseen_array()
+            "***COUNTRY_VRPS_SEEN***",
+            &stats.vrps_f_seen_array()
         );
 
         println!("{}", html);
@@ -604,14 +604,14 @@ impl InvalidsResultTotals {
 }
 
 
-//------------ StalenessReport ----------------------------------------------
+//------------ SeenReport ----------------------------------------------------
 
-pub struct UnseenReport {
+pub struct SeenReport {
     announcements: IpRangeTree<Announcement>,
     roas: IpRangeTree<ValidatedRoaPayload>
 }
 
-impl UnseenReport {
+impl SeenReport {
     pub fn execute(options: &InvalidsOpts) -> Result<(), Error> {
         let announcements: IpRangeTree<Announcement> =
             RisAnnouncements::from_file(&options.dump).unwrap();
@@ -619,15 +619,15 @@ impl UnseenReport {
         let roas: IpRangeTree<ValidatedRoaPayload> =
             Roas::from_file(&options.roas).unwrap();
 
-        let report = UnseenReport { announcements, roas };
+        let report = SeenReport { announcements, roas };
         let res = report.verify(&options.scope);
 
         println!("{}", serde_json::to_string(&res)?);
         Ok(())
     }
 
-    fn verify(&self, scope: &Option<IpResourceSet>) -> UnseenReportResult {
-        let mut res = UnseenReportResult::default();
+    fn verify(&self, scope: &Option<IpResourceSet>) -> SeenReportResult {
+        let mut res = SeenReportResult::default();
         match scope {
             None => {
                 for vrp in self.roas.all() {
@@ -654,22 +654,22 @@ impl UnseenReport {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct UnseenReportResult {
+pub struct SeenReportResult {
     total_vrps: usize,
-    stale: Vec<ValidatedRoaPayload>
+    unseen: Vec<ValidatedRoaPayload>
 }
 
-impl Default for UnseenReportResult {
+impl Default for SeenReportResult {
     fn default() -> Self {
-        UnseenReportResult { total_vrps: 0, stale: vec![] }
+        SeenReportResult { total_vrps: 0, unseen: vec![] }
     }
 }
 
-impl UnseenReportResult {
+impl SeenReportResult {
     pub fn add(&mut self, vrp: &ValidatedRoaPayload, impact: &VrpImpact) {
         self.total_vrps += 1;
         if impact.is_unseen() {
-            self.stale.push(vrp.clone())
+            self.unseen.push(vrp.clone())
         }
     }
 }
