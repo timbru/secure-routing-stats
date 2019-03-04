@@ -17,7 +17,7 @@ use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
-use report::ScopeLimits;
+use crate::report::ScopeLimits;
 
 
 //------------ Announcement --------------------------------------------------
@@ -188,8 +188,9 @@ mod tests {
 
     #[test]
     fn should_read_from_file() {
-        let path = PathBuf::from("test/20181017/riswhoisdump.IPv4");
-        let announcements = Announcements::from_ris(&path).unwrap();
+        let v4_path = PathBuf::from("test/20190304/riswhoisdump.IPv4");
+        let v6_path = PathBuf::from("test/20190304/riswhoisdump.IPv6");
+        let announcements = Announcements::from_ris(&v4_path, &v6_path).unwrap();
 
         let test_ann = Announcement {
             asn: Asn::from_str("AS13335").unwrap(),

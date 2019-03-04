@@ -9,12 +9,12 @@ use crate::ip::AsnSet;
 use crate::ip::IpResourceSet;
 use crate::ip::IpRespourceSetError;
 use crate::report::ScopeLimits;
-use crate::vrps;
-use crate::vrps::Roas;
-use crate::vrps::ValidatedRoaPayload;
-use crate::validation::VrpImpact;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
+use crate::validation::VrpImpact;
+use crate::vrps;
+use crate::vrps::Vrps;
+use crate::vrps::ValidatedRoaPayload;
 
 
 //------------ ResourceReportOpts --------------------------------------------
@@ -95,7 +95,7 @@ impl ResourceReport {
         let announcements = Announcements::from_ris(
             &options.ris4, &options.ris6
         )?;
-        let vrps = Roas::from_file(&options.vrps)?;
+        let vrps = Vrps::from_file(&options.vrps)?;
 
         let mut anns_res = AnnouncementsResult::default();
         for ann in announcements.in_scope(options.scope()) {
@@ -201,7 +201,7 @@ impl fmt::Display for AnnouncementsResult {
         writeln!(f, "    invalid asn:    {}", self.invalid_asn)?;
         writeln!(f, "    not found:      {}", self.not_found)?;
         writeln!(f, "    total:          {}", self.total())?;
-        if self.invalids.len() > 0 {
+        if ! self.invalids.is_empty() {
             writeln!(f)?;
             writeln!(f, "  Invalids:")?;
             for ann in &self.invalids {

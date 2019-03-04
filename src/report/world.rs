@@ -12,10 +12,10 @@ use crate::delegations::IpDelegations;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRespourceSetError;
-use crate::vrps::Roas;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
+use crate::vrps::Vrps;
 
 
 //------------ CountryStat --------------------------------------------------
@@ -323,7 +323,7 @@ impl WorldStatsReport {
             &options.ris4, &options.ris6
         ).unwrap();
 
-        let vrps = Roas::from_file(&options.vrps).unwrap();
+        let vrps = Vrps::from_file(&options.vrps).unwrap();
 
         let delegations: IpRangeTree<IpDelegation> =
             IpDelegations::from_file(&options.stats).unwrap();

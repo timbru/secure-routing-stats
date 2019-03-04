@@ -1,4 +1,5 @@
 //! Parse ROAs.csv
+use std::fmt;
 use std::fmt::Display;
 use std::fs::File;
 use std::io;
@@ -8,14 +9,13 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
 use crate::ip::Asn;
+use crate::ip::AsnError;
 use crate::ip::IpPrefixError;
 use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
-use ip::AsnError;
-use report::ScopeLimits;
-use std::fmt;
+use crate::report::ScopeLimits;
 
 
 //------------ ValidatedRoaPrefix --------------------------------------------
@@ -80,13 +80,13 @@ impl fmt::Display for ValidatedRoaPayload {
 }
 
 
-//------------ Roas ----------------------------------------------------------
+//------------ Vrps ----------------------------------------------------------
 
-pub struct Roas {
+pub struct Vrps {
     tree: IpRangeTree<ValidatedRoaPayload>
 }
 
-impl Roas {
+impl Vrps {
     pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -104,7 +104,7 @@ impl Roas {
             builder.add(vrp);
         };
 
-        Ok(Roas { tree: builder.build() })
+        Ok(Vrps { tree: builder.build() })
     }
 
     pub fn in_scope(&self, scope: &ScopeLimits) -> Vec<&ValidatedRoaPayload> {
@@ -185,8 +185,8 @@ mod tests {
 
     #[test]
     fn should_read_from_file() {
-        let path = PathBuf::from("test/20181017/export-roa.csv");
-        Roas::from_file(&path).unwrap();
+        let path = PathBuf::from("test/20190304/vrps.csv");
+        Vrps::from_file(&path).unwrap();
     }
 }
 

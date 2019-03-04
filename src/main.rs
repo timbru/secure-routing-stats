@@ -10,10 +10,11 @@ use secure_routing_stats::report::world::{
     WorldStatsOpts,
     WorldStatsReport
 };
-use secure_routing_stats::report::resources::ResourceReportOpts;
-use secure_routing_stats::report::resources::ResourceReport;
-use secure_routing_stats::report::resources;
-
+use secure_routing_stats::report::resources::{
+    self,
+    ResourceReport,
+    ResourceReportOpts
+};
 
 fn main() {
     match Options::create() {

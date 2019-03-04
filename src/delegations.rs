@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn should_read_from_file() {
-        let path = PathBuf::from("test/20181017/delegated-extended.txt");
+        let path = PathBuf::from("test/20190304/delegated-extended.txt");
         IpDelegations::from_file(&path).unwrap();
     }
 }
