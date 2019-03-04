@@ -5,18 +5,14 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
 use std::path::PathBuf;
-use std::str::FromStr;
 use clap::ArgMatches;
-use crate::announcements::Announcement;
 use crate::announcements::Announcements;
 use crate::delegations::IpDelegation;
 use crate::delegations::IpDelegations;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
-use crate::ip::IpResourceSet;
 use crate::ip::IpRespourceSetError;
-use crate::roas::Roas;
-use crate::roas::ValidatedRoaPayload;
+use crate::vrps::Roas;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
@@ -319,8 +315,7 @@ impl WorldStatsReport {
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
         let announcements = Announcements::from_ris(&options.dump).unwrap();
 
-        let roas: IpRangeTree<ValidatedRoaPayload> =
-            Roas::from_file(&options.roas).unwrap();
+        let roas = Roas::from_file(&options.roas).unwrap();
 
         let delegations: IpRangeTree<IpDelegation> =
             IpDelegations::from_file(&options.stats).unwrap();
@@ -329,22 +324,20 @@ impl WorldStatsReport {
         let mut country_stats = CountryStats::default();
 
         for ann in announcements.all() {
-            let matching_roas = roas.matching_or_less_specific(ann.as_ref());
+            let matching_roas = roas.containing(ann.as_ref());
             let validated = ValidatedAnnouncement::create(ann, &matching_roas);
             let cc = Self::find_cc(&delegations, ann.as_ref());
 
             country_stats.add_ann(&validated, cc);
         }
 
-        for vrps in roas.inner().iter() {
-            for vrp in &vrps.value {
-                let anns = announcements.eq_or_longer(vrp.as_ref());
+        for vrp in roas.all() {
+            let anns = announcements.contained_by(vrp.as_ref());
 
-                let impact = VrpImpact::evaluate(vrp, &anns);
-                let cc = Self::find_cc(&delegations, vrp.prefix().as_ref());
+            let impact = VrpImpact::evaluate(vrp, &anns);
+            let cc = Self::find_cc(&delegations, vrp.prefix().as_ref());
 
-                country_stats.add_impact(&impact, cc);
-            }
+            country_stats.add_impact(&impact, cc);
         }
 
         match options.format {
@@ -375,7 +368,7 @@ impl WorldStatsReport {
     }
 
     fn html(stats: &CountryStats) -> Result<(), Error> {
-        let template = include_str!["../templates/worldmap.html"];
+        let template = include_str!["../../templates/worldmap.html"];
 
         let html = template.replace(
             "***COUNTRY_PREFIXES_ADOPTION***",
@@ -406,264 +399,6 @@ impl WorldStatsReport {
     }
 
 }
-
-
-//------------ InvalidsOpts -------------------------------------------------
-
-enum InvalidsFormat {
-    Json,
-    Text
-}
-
-/// Defines options for the invalids report
-pub struct InvalidsOpts {
-    dump: PathBuf,
-    roas: PathBuf,
-    scope: Option<IpResourceSet>,
-    format: InvalidsFormat
-}
-
-impl InvalidsOpts {
-    pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
-        let dump_file = matches.value_of("dump").unwrap();
-        let dump = PathBuf::from(dump_file);
-
-        let roas_file = matches.value_of("roas").unwrap();
-        let roas = PathBuf::from(roas_file);
-
-        let scope = {
-            if let Some(scope) = matches.value_of("scope") {
-                Some(IpResourceSet::from_str(scope)?)
-            } else {
-                None
-            }
-        };
-
-        let format = {
-            if let Some(format) = matches.value_of("format") {
-                match format {
-                    "json" => InvalidsFormat::Json,
-                    "text" => InvalidsFormat::Text,
-                    f => return Err(Error::WithMessage(
-                        format!("Unsupported format: {}. Supported are: json|text", f)))
-                }
-            } else {
-                InvalidsFormat::Json
-            }
-        };
-
-        Ok(InvalidsOpts { dump, roas, scope, format })
-    }
-}
-
-
-//------------ InvalidsReport ------------------------------------------------
-
-/// Used to report invalids, perhaps unsurprisingly.
-pub struct InvalidsReport {
-    announcements: Announcements,
-    roas: IpRangeTree<ValidatedRoaPayload>
-}
-
-impl InvalidsReport {
-    pub fn execute(options: &InvalidsOpts) -> Result<(), Error> {
-
-        let announcements = Announcements::from_ris(&options.dump).unwrap();
-
-        let roas: IpRangeTree<ValidatedRoaPayload> =
-            Roas::from_file(&options.roas).unwrap();
-
-        let report = InvalidsReport { announcements, roas};
-
-        let res = match &options.scope {
-            None => report.report_all(),
-            Some(set) => report.report_set(set)
-        };
-
-        match options.format {
-            InvalidsFormat::Json => println!("{}", serde_json::to_string(&res)?),
-            InvalidsFormat::Text => println!("{}", res)
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, ann: &Announcement) -> ValidatedAnnouncement {
-        let matching_roas = self.roas.matching_or_less_specific(ann.as_ref());
-        ValidatedAnnouncement::create(ann, &matching_roas)
-    }
-
-    fn report_all(&self) -> InvalidsResult {
-        let mut res = InvalidsResult::default();
-
-        for ann in self.announcements.all() {
-            res.add(self.validate(ann));
-        }
-
-        res
-    }
-
-    fn report_set(&self, set: &IpResourceSet) -> InvalidsResult {
-        let mut res = InvalidsResult::default();
-
-        for range in set.ranges() {
-            for ann in self.announcements.eq_or_longer(&range) {
-                res.add(self.validate(ann));
-            }
-        }
-
-        res
-    }
-}
-
-
-//------------ InvalidsResult ------------------------------------------------
-
-#[derive(Clone, Debug, Serialize)]
-struct InvalidsResult {
-    totals: InvalidsResultTotals,
-    invalids: Vec<ValidatedAnnouncement>
-}
-
-impl Default for InvalidsResult {
-    fn default() -> Self {
-        InvalidsResult {
-            totals: InvalidsResultTotals::default(),
-            invalids: vec![]
-        }
-    }
-}
-
-impl InvalidsResult {
-    pub fn add(&mut self, ann: ValidatedAnnouncement) {
-        self.totals.add(&ann);
-        match ann.state() {
-            ValidationState::InvalidLength => self.invalids.push(ann),
-            ValidationState::InvalidAsn    => self.invalids.push(ann),
-            _ => {}
-        }
-    }
-}
-
-
-impl Display for InvalidsResult {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Totals:")?;
-        writeln!(f, "  valid: {}", self.totals.valid)?;
-        writeln!(f, "  invalid length: {}", self.totals.invalid_length)?;
-        writeln!(f, "  invalid asn: {}", self.totals.invalid_asn)?;
-        writeln!(f, "  not found: {}", self.totals.not_found)?;
-        writeln!(f)?;
-        writeln!(f, "Invalids:")?;
-        for ann in &self.invalids {
-            writeln!(f, "  {}", ann)?;
-        }
-        Ok(())
-    }
-}
-
-
-//------------ InvalidsResultTotals ------------------------------------------
-
-#[derive(Clone, Debug, Serialize)]
-struct InvalidsResultTotals {
-    valid: usize,
-    invalid_asn: usize,
-    invalid_length: usize,
-    not_found: usize
-}
-
-impl Default for InvalidsResultTotals {
-    fn default() -> Self {
-        InvalidsResultTotals {
-            valid: 0,
-            invalid_asn: 0,
-            invalid_length: 0,
-            not_found: 0
-        }
-    }
-}
-
-impl InvalidsResultTotals {
-    pub fn add(&mut self, ann: &ValidatedAnnouncement) {
-        match ann.state() {
-            ValidationState::Valid         => self.valid += 1,
-            ValidationState::InvalidLength => self.invalid_length += 1,
-            ValidationState::InvalidAsn    => self.invalid_asn += 1,
-            ValidationState::NotFound      => self.not_found += 1,
-        }
-    }
-}
-
-
-//------------ SeenReport ----------------------------------------------------
-
-pub struct SeenReport {
-    announcements: Announcements,
-    roas: IpRangeTree<ValidatedRoaPayload>
-}
-
-impl SeenReport {
-    pub fn execute(options: &InvalidsOpts) -> Result<(), Error> {
-        let announcements = Announcements::from_ris(&options.dump).unwrap();
-
-        let roas: IpRangeTree<ValidatedRoaPayload> =
-            Roas::from_file(&options.roas).unwrap();
-
-        let report = SeenReport { announcements, roas };
-        let res = report.verify(&options.scope);
-
-        println!("{}", serde_json::to_string(&res)?);
-        Ok(())
-    }
-
-    fn verify(&self, scope: &Option<IpResourceSet>) -> SeenReportResult {
-        let mut res = SeenReportResult::default();
-        match scope {
-            None => {
-                for vrp in self.roas.all() {
-                    res.add(vrp, &self.verify_vrp(vrp));
-                }
-            },
-            Some(set) => {
-                for range in set.ranges() {
-                    for vrp in self.roas.matching_or_more_specific(range) {
-                        res.add(vrp, &self.verify_vrp(vrp));
-                    }
-                }
-            }
-        }
-        res
-    }
-
-    fn verify_vrp(&self, vrp: &ValidatedRoaPayload) -> VrpImpact {
-        let anns = self.announcements.eq_or_longer(vrp.as_ref());
-        VrpImpact::evaluate(vrp, &anns)
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct SeenReportResult {
-    total_vrps: usize,
-    unseen: Vec<ValidatedRoaPayload>
-}
-
-impl Default for SeenReportResult {
-    fn default() -> Self {
-        SeenReportResult { total_vrps: 0, unseen: vec![] }
-    }
-}
-
-impl SeenReportResult {
-    pub fn add(&mut self, vrp: &ValidatedRoaPayload, impact: &VrpImpact) {
-        self.total_vrps += 1;
-        if impact.is_unseen() {
-            self.unseen.push(vrp.clone())
-        }
-    }
-}
-
-
 
 
 //------------ Error --------------------------------------------------------

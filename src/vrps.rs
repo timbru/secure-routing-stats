@@ -14,6 +14,8 @@ use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
 use ip::AsnError;
+use report::ScopeLimits;
+use std::fmt;
 
 
 //------------ ValidatedRoaPrefix --------------------------------------------
@@ -65,10 +67,24 @@ impl FromStr for ValidatedRoaPayload {
     }
 }
 
+impl fmt::Display for ValidatedRoaPayload {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "AS: {}, Prefix: {}, Max Length: {}",
+            self.asn,
+            self.prefix,
+            self.max_length
+        )
+    }
+}
+
 
 //------------ Roas ----------------------------------------------------------
 
-pub type Roas = IpRangeTree<ValidatedRoaPayload>;
+pub struct Roas {
+    tree: IpRangeTree<ValidatedRoaPayload>
+}
 
 impl Roas {
     pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
@@ -88,8 +104,40 @@ impl Roas {
             builder.add(vrp);
         };
 
-        Ok(builder.build())
+        Ok(Roas { tree: builder.build() })
     }
+
+    pub fn in_scope(&self, scope: &ScopeLimits) -> Vec<&ValidatedRoaPayload> {
+        let mut vrps = match scope.ips() {
+            None => self.all(),
+            Some(set) => {
+                set.ranges().iter().flat_map(|range|
+                    self.contained_by(range)
+                ).collect()
+            }
+        };
+
+        if let Some(set) = scope.asns() {
+            vrps.retain(|vrp| set.contains(vrp.asn()))
+        }
+
+        vrps
+    }
+
+
+    pub fn all(&self) -> Vec<&ValidatedRoaPayload>{
+        self.tree.all()
+    }
+
+
+    pub fn containing(&self, range: &IpRange) -> Vec<&ValidatedRoaPayload> {
+        self.tree.matching_or_less_specific(range)
+    }
+
+    pub fn contained_by(&self, range: &IpRange) -> Vec<&ValidatedRoaPayload> {
+        self.tree.matching_or_more_specific(range)
+    }
+
 }
 
 

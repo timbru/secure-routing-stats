@@ -17,6 +17,7 @@ use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
+use report::ScopeLimits;
 
 
 //------------ Announcement --------------------------------------------------
@@ -106,9 +107,26 @@ impl Announcements {
         self.tree.all()
     }
 
+    pub fn in_scope(&self, scope: &ScopeLimits) -> Vec<&Announcement> {
+        let mut anns = match scope.ips() {
+            None => self.all(),
+            Some(set) => {
+                set.ranges().iter().flat_map(|range|
+                    self.contained_by(range)
+                ).collect()
+            }
+        };
+
+        if let Some(set) = &scope.asns() {
+            anns.retain(|ann| set.contains(ann.asn()));
+        }
+
+        anns
+    }
+
     /// Matches announcements that match the given range exactly, or which
     /// are more specific (i.e. the have a longer matching common part).
-    pub fn eq_or_longer(&self, range: &IpRange) -> Vec<&Announcement> {
+    pub fn contained_by(&self, range: &IpRange) -> Vec<&Announcement> {
         self.tree.matching_or_more_specific(range)
     }
 }
@@ -166,7 +184,7 @@ mod tests {
             prefix: IpPrefix::from_str("1.0.0.0/24").unwrap()
         };
 
-        let matches = announcements.eq_or_longer(test_ann.as_ref());
+        let matches = announcements.contained_by(test_ann.as_ref());
 
         assert_eq!(matches.len(), 1);
     }

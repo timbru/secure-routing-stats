@@ -1,5 +1,5 @@
 use crate::announcements::Announcement;
-use crate::roas::ValidatedRoaPayload;
+use crate::vrps::ValidatedRoaPayload;
 use std::fmt::Display;
 use std::fmt;
 

@@ -101,6 +101,7 @@ impl fmt::Display for AsnRange {
 
 //------------ AsnSet --------------------------------------------------------
 
+#[derive(Clone, Debug)]
 pub struct AsnSet {
     ranges: Vec<AsnRange>
 }
@@ -420,6 +421,7 @@ impl Serialize for IpPrefix {
 
 //------------ IpResourceSet -------------------------------------------------
 
+#[derive(Clone)]
 pub struct IpResourceSet {
     ranges: Vec<IpRange>
 }

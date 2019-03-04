@@ -5,14 +5,14 @@ extern crate secure_routing_stats;
 use clap::App;
 use clap::Arg;
 use clap::SubCommand;
-use secure_routing_stats::report::{
+use secure_routing_stats::report::world::{
     self,
-    InvalidsOpts,
-    InvalidsReport,
     WorldStatsOpts,
     WorldStatsReport
 };
-use secure_routing_stats::report::SeenReport;
+use secure_routing_stats::report::resources::ResourceReportOpts;
+use secure_routing_stats::report::resources::ResourceReport;
+use secure_routing_stats::report::resources;
 
 
 fn main() {
@@ -25,12 +25,11 @@ fn main() {
             let res = match option {
                 Options::WorldStats(opts) => {
                     WorldStatsReport::execute(&opts)
+                        .map_err(Error::WorldReportError)
                 }
-                Options::Invalids(opts) => {
-                    InvalidsReport::execute(&opts)
-                }
-                Options::Seen(opts) => {
-                    SeenReport::execute(&opts)
+                Options::ResourceStats(opts) => {
+                    ResourceReport::execute(&opts)
+                        .map_err(Error::ResourceReportError)
                 }
             };
             match res {
@@ -46,8 +45,7 @@ fn main() {
 
 enum Options {
     WorldStats(WorldStatsOpts),
-    Invalids(InvalidsOpts),
-    Seen(InvalidsOpts)
+    ResourceStats(ResourceReportOpts)
 }
 
 impl Options {
@@ -81,8 +79,8 @@ impl Options {
                     .help("Specify output format, defaults to json")
                     .required(false))
             )
-            .subcommand(SubCommand::with_name("invalids")
-                .about("Report invalid announcements")
+            .subcommand(SubCommand::with_name("resources")
+                .about("Report ROA quality on a resource basis")
                 .arg(Arg::with_name("dump")
                     .short("d")
                     .long("dump")
@@ -95,10 +93,16 @@ impl Options {
                     .value_name("FILE")
                     .help("ROAs CSV file.")
                     .required(true))
-                .arg(Arg::with_name("scope")
-                    .short("s")
-                    .long("scope")
+                .arg(Arg::with_name("ips")
+                    .short("i")
+                    .long("ips")
                     .value_name("comma separated prefixes/ranges")
+                    .help("Optional scope for invalid report. Default: all")
+                    .required(false))
+                .arg(Arg::with_name("asns")
+                    .short("a")
+                    .long("asns")
+                    .value_name("comma separated ASNs / ASN ranges")
                     .help("Optional scope for invalid report. Default: all")
                     .required(false))
                 .arg(Arg::with_name("format")
@@ -108,35 +112,12 @@ impl Options {
                     .help("Specify output format, defaults to json")
                     .required(false))
             )
-            .subcommand(SubCommand::with_name("seen")
-                .about("Report VRP visibility in BGP")
-                .arg(Arg::with_name("dump")
-                    .short("d")
-                    .long("dump")
-                    .value_name("FILE")
-                    .help("Route announcements dump file.")
-                    .required(true))
-                .arg(Arg::with_name("roas")
-                    .short("r")
-                    .long("roas")
-                    .value_name("FILE")
-                    .help("ROAs CSV file.")
-                    .required(true))
-                .arg(Arg::with_name("scope")
-                    .short("s")
-                    .long("scope")
-                    .value_name("comma separated prefixes/ranges")
-                    .help("Optional scope for invalid report. Default: all")
-                    .required(false))
-            )
             .get_matches();
 
         if let Some(opts) = matches.subcommand_matches("world") {
             Ok(Options::WorldStats(WorldStatsOpts::parse(opts)?))
-        } else if let Some(opts) = matches.subcommand_matches("invalids") {
-            Ok(Options::Invalids(InvalidsOpts::parse(opts)?))
-        } else if let Some(opts) = matches.subcommand_matches("seen") {
-            Ok(Options::Seen(InvalidsOpts::parse(opts)?))
+        } else if let Some(opts) = matches.subcommand_matches("resources") {
+            Ok(Options::ResourceStats(ResourceReportOpts::parse(opts)?))
         } else {
             Err(Error::msg("No sub-command given. See --help for options."))
         }
@@ -152,7 +133,10 @@ pub enum Error {
     WithMessage(String),
 
     #[display(fmt="{}", _0)]
-    ReportError(report::Error),
+    WorldReportError(world::Error),
+
+    #[display(fmt="{}", _0)]
+    ResourceReportError(resources::Error),
 }
 
 impl Error {
@@ -161,7 +145,11 @@ impl Error {
     }
 }
 
-impl From<report::Error> for Error {
-    fn from(e: report::Error) -> Self { Error::ReportError(e) }
+impl From<world::Error> for Error {
+    fn from(e: world::Error) -> Self { Error::WorldReportError(e) }
+}
+
+impl From<resources::Error> for Error {
+    fn from(e: resources::Error) -> Self { Error::ResourceReportError(e) }
 }
 
