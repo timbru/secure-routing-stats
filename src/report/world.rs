@@ -257,8 +257,9 @@ impl Display for CountryStats {
 
 /// Options for the WorldStatsReport
 pub struct WorldStatsOpts {
-    dump: PathBuf,
-    roas: PathBuf,
+    ris4: PathBuf,
+    ris6: PathBuf,
+    vrps: PathBuf,
     stats: PathBuf,
     format: WorldStatsFormat
 }
@@ -266,11 +267,16 @@ pub struct WorldStatsOpts {
 impl WorldStatsOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
 
-        let dump_file = matches.value_of("dump").unwrap();
-        let dump = PathBuf::from(dump_file);
+        let ris4_file = matches.value_of("ris4").unwrap();
+        let ris4 = PathBuf::from(ris4_file);
 
-        let roas_file = matches.value_of("roas").unwrap();
-        let roas = PathBuf::from(roas_file);
+        let ris6_file = matches.value_of("ris6").unwrap();
+        let ris6 = PathBuf::from(ris6_file);
+
+        let vrps_file = matches.value_of("vrps").unwrap();
+        let vrps = PathBuf::from(vrps_file);
+
+        let matches = matches.subcommand_matches("world").unwrap();
 
         let stats_file = matches.value_of("stats").unwrap();
         let stats = PathBuf::from(stats_file);
@@ -289,7 +295,7 @@ impl WorldStatsOpts {
             }
         };
 
-        Ok(WorldStatsOpts { dump, roas, stats, format })
+        Ok(WorldStatsOpts { ris4, ris6, vrps, stats, format })
     }
 }
 
@@ -313,9 +319,11 @@ pub struct WorldStatsReport;
 impl WorldStatsReport {
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
-        let announcements = Announcements::from_ris(&options.dump).unwrap();
+        let announcements = Announcements::from_ris(
+            &options.ris4, &options.ris6
+        ).unwrap();
 
-        let roas = Roas::from_file(&options.roas).unwrap();
+        let vrps = Roas::from_file(&options.vrps).unwrap();
 
         let delegations: IpRangeTree<IpDelegation> =
             IpDelegations::from_file(&options.stats).unwrap();
@@ -324,14 +332,14 @@ impl WorldStatsReport {
         let mut country_stats = CountryStats::default();
 
         for ann in announcements.all() {
-            let matching_roas = roas.containing(ann.as_ref());
+            let matching_roas = vrps.containing(ann.as_ref());
             let validated = ValidatedAnnouncement::create(ann, &matching_roas);
             let cc = Self::find_cc(&delegations, ann.as_ref());
 
             country_stats.add_ann(&validated, cc);
         }
 
-        for vrp in roas.all() {
+        for vrp in vrps.all() {
             let anns = announcements.contained_by(vrp.as_ref());
 
             let impact = VrpImpact::evaluate(vrp, &anns);

@@ -77,64 +77,71 @@ disregarded.
 
 Default output format is json. Example:
 ```
-$ ./target/release/secure_routing_stats world \
-      --dump test/20181017/riswhoisdump.IPv4 \
-      --roas test/20181017/export-roa.csv \
-      --stats test/20181017/delegated-extended.txt 
+$ secure_routing_stats \
+      --ris4 test/20190304/riswhoisdump.IPv4 \
+      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --vrps test/20190304/vrps.csv \
+      world --stats test/20190304/delegated-extended.txt 
 ```
 
 Alternatively this can produce an world map html file. Example:
 ```
-$ ./target/release/secure_routing_stats world \
-      --dump test/20181017/riswhoisdump.IPv4 \
-      --roas test/20181017/export-roa.csv \
-      --stats test/20181017/delegated-extended.txt
+$ secure_routing_stats \
+      --ris4 test/20190304/riswhoisdump.IPv4 \
+      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --vrps test/20190304/vrps.csv \
+      world --stats test/20190304/delegated-extended.txt \
       --format html
 ```
 
 Finally, you can also get a simple text output:
 ```
-$ ./target/release/secure_routing_stats world \
-      --dump test/20181017/riswhoisdump.IPv4 \
-      --roas test/20181017/export-roa.csv \
-      --stats test/20181017/delegated-extended.txt
+$ secure_routing_stats \
+      --ris4 test/20190304/riswhoisdump.IPv4 \
+      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --vrps test/20190304/vrps.csv \
+      world --stats test/20190304/delegated-extended.txt \
       --format text
 ```
 
 
-## Invalids reports
+## Resource based reports
 
-Produces a detailed report of invalids for some address space. Defaults to all
-address space, but can be scoped to a smaller set. Sets are defined as comma 
-separated prefixes and/or ranges.
+Produces a detailed report of the validity of announcements, as well as the 
+visibility of Validated ROA Payloads in BGP.
 
-Example:
+This defaults to all resources when run like this:
 ```
-$ ./target/release/secure_routing_stats invalids \
-      --dump test/20181017/riswhoisdump.IPv4 \
-      --roas test/20181017/export-roa.csv \
-      --scope "193.0.0.0/8,194.0.0.0-194.0.1.3"
+$ secure_routing_stats \
+      --ris4 test/20190304/riswhoisdump.IPv4 \
+      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --vrps test/20190304/vrps.csv \
+      resources
 ```
 
-By default this produces JSON output. But you can use ```--format text``` to 
-get a human readable report.
+But in practice you will want to scope this report to specific IP resources, 
+using the ```--ips``` option, or ASNs, using the ```--asns``` option. And, you
+can also have text output:
 
-
-## Validated ROA Payloads seen
-
-Produces a report of Validated ROA Payloads (VRPs) visibility in BGP. VRPs 
-for which at least one valid announcement exists are considered 'seen'. Note 
-that a single VRP may have many valid announcements, because of max length. 
-VRPs for which no valid announcements are seen, are considered 'unseen'. 
-
-If a VRP is 'unseen', this may be because these VRPs are stale, e.g. they are
-no longer needed. But, it may also be that these VRPs serve to authorise 
-back-up or future announcements.   
-
-Example:
+Examples:
 ```
-$ ./target/release/secure_routing_stats seen \
-      --dump test/20181017/riswhoisdump.IPv4 \
-      --roas test/20181017/export-roa.csv \
-      --scope "193.0.0.0/8,194.0.0.0-194.0.1.3"
+$ secure_routing_stats \
+      --ris4 test/20190304/riswhoisdump.IPv4 \
+      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --vrps test/20190304/vrps.csv \
+      resources \
+      --ips "185.49.140.0/22, 2a04:b900::/29" \
+      --format text
 ```
+
+```
+$ secure_routing_stats \
+      --ris4 test/20190304/riswhoisdump.IPv4 \
+      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --vrps test/20190304/vrps.csv \
+      resources \
+      --asns "AS199664, AS199665-AS199666"
+```
+
+
+

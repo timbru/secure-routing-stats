@@ -20,8 +20,9 @@ use crate::validation::ValidationState;
 //------------ ResourceReportOpts --------------------------------------------
 
 pub struct ResourceReportOpts {
-    dump: PathBuf,
-    roas: PathBuf,
+    ris4: PathBuf,
+    ris6: PathBuf,
+    vrps: PathBuf,
     scope: ScopeLimits,
     format: ReportFormat
 }
@@ -32,11 +33,16 @@ impl ResourceReportOpts {
     }
 
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
-        let dump_file = matches.value_of("dump").unwrap();
-        let dump = PathBuf::from(dump_file);
+        let ris4_file = matches.value_of("ris4").unwrap();
+        let ris4 = PathBuf::from(ris4_file);
 
-        let roas_file = matches.value_of("roas").unwrap();
-        let roas = PathBuf::from(roas_file);
+        let ris6_file = matches.value_of("ris6").unwrap();
+        let ris6 = PathBuf::from(ris6_file);
+
+        let vrps_file = matches.value_of("vrps").unwrap();
+        let vrps = PathBuf::from(vrps_file);
+
+        let matches = matches.subcommand_matches("resources").unwrap();
 
         let ips = {
             if let Some(ips) = matches.value_of("ips") {
@@ -69,7 +75,7 @@ impl ResourceReportOpts {
             }
         };
 
-        Ok(ResourceReportOpts { dump, roas, scope, format })
+        Ok(ResourceReportOpts { ris4, ris6, vrps, scope, format })
     }
 }
 
@@ -86,8 +92,10 @@ pub struct ResourceReport;
 impl ResourceReport {
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
 
-        let announcements = Announcements::from_ris(&options.dump)?;
-        let vrps = Roas::from_file(&options.roas)?;
+        let announcements = Announcements::from_ris(
+            &options.ris4, &options.ris6
+        )?;
+        let vrps = Roas::from_file(&options.vrps)?;
 
         let mut anns_res = AnnouncementsResult::default();
         for ann in announcements.in_scope(options.scope()) {
@@ -109,12 +117,8 @@ impl ResourceReport {
         };
 
         match options.format {
-            ReportFormat::Json => {
-                println!("{}", serde_json::to_string(&res)?);
-            },
-            ReportFormat::Text => {
-                println!("{}", res);
-            }
+            ReportFormat::Json => println!("{}", serde_json::to_string(&res)?),
+            ReportFormat::Text => print!("{}", res)
         }
 
         Ok(())
@@ -197,10 +201,12 @@ impl fmt::Display for AnnouncementsResult {
         writeln!(f, "    invalid asn:    {}", self.invalid_asn)?;
         writeln!(f, "    not found:      {}", self.not_found)?;
         writeln!(f, "    total:          {}", self.total())?;
-        writeln!(f)?;
-        writeln!(f, "  Invalids:")?;
-        for ann in &self.invalids {
-            writeln!(f, "    {}", ann)?;
+        if self.invalids.len() > 0 {
+            writeln!(f)?;
+            writeln!(f, "  Invalids:")?;
+            for ann in &self.invalids {
+                writeln!(f, "    {}", ann)?;
+            }
         }
         Ok(())
     }
@@ -233,12 +239,18 @@ impl VisibilityResult {
 
 impl fmt::Display for VisibilityResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let unseen = self.unseen.len();
+
         writeln!(f, "Validated ROA Payloads")?;
-        writeln!(f, "  Total: {}", self.total)?;
-        writeln!(f, "  Unseen in BGP")?;
-        for vrp in &self.unseen {
-            writeln!(f, "    {}", vrp)?;
+        writeln!(f, "  Total:            {}", self.total)?;
+        writeln!(f, "  Unseen in BGP:    {}", unseen)?;
+
+        if unseen > 0 {
+            for vrp in &self.unseen {
+                writeln!(f, "    {}", vrp)?;
+            }
         }
+
         Ok(())
     }
 }

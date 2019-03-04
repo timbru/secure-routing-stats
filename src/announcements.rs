@@ -66,12 +66,13 @@ pub struct Announcements {
 }
 
 impl Announcements {
-    pub fn from_ris(path: &PathBuf) -> Result<Self, Error> {
+
+    fn parse_ris_file(
+        builder: &mut IpRangeTreeBuilder<Announcement>,
+        path: &PathBuf
+    ) -> Result<(), Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-
-        let mut builder = IpRangeTreeBuilder::empty();
-
         for lres in reader.lines() {
             let line = lres?;
             if line.is_empty() || line.starts_with('%') {
@@ -99,6 +100,17 @@ impl Announcements {
 
             builder.add(ann);
         }
+        Ok(())
+    }
+
+    pub fn from_ris(
+        v4_path: &PathBuf,
+        v6_path: &PathBuf
+    ) -> Result<Self, Error> {
+        let mut builder = IpRangeTreeBuilder::empty();
+
+        Self::parse_ris_file(&mut builder, v4_path)?;
+        Self::parse_ris_file(&mut builder, v6_path)?;
 
         Ok(Announcements { tree: builder.build() })
     }
