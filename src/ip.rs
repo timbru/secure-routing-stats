@@ -56,6 +56,9 @@ impl fmt::Display for Asn {
     }
 }
 
+
+//------------ AsnRange ------------------------------------------------------
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AsnRange {
     min: Asn,
@@ -87,33 +90,26 @@ impl FromStr for AsnRange {
 
 impl fmt::Display for AsnRange {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}-{}", self.min, self.max)
+        if self.min == self.max {
+            write!(f, "{}", self.min)
+        } else {
+            write!(f, "{}-{}", self.min, self.max)
+        }
     }
 }
 
-pub enum AsnOrAsnRange {
-    Asn(Asn),
-    Range(AsnRange)
-}
+
+//------------ AsnSet --------------------------------------------------------
 
 pub struct AsnSet {
-    elements: Vec<AsnOrAsnRange>
+    ranges: Vec<AsnRange>
 }
 
 impl AsnSet {
     pub fn contains(&self, asn: &Asn) -> bool {
-        for el in &self.elements {
-            match el {
-                AsnOrAsnRange::Range(range) => {
-                    if range.contains(asn) {
-                        return true;
-                    }
-                }
-                AsnOrAsnRange::Asn(asn_el) => {
-                    if asn == asn_el {
-                        return true;
-                    }
-                }
+        for range in &self.ranges {
+            if range.contains(asn) {
+                return true;
             }
         }
         false
@@ -129,24 +125,22 @@ impl FromStr for AsnSet {
         for el in string.split(',') {
             if el.contains('-') {
                 let range = AsnRange::from_str(&el)?;
-                elements.push(AsnOrAsnRange::Range(range));
+                elements.push(range);
             } else {
                 let asn = Asn::from_str(&el)?;
-                elements.push(AsnOrAsnRange::Asn(asn));
+                let range = AsnRange { min: asn.clone(), max: asn};
+                elements.push(range);
             }
         }
-        Ok(AsnSet { elements })
+        Ok(AsnSet { ranges: elements })
     }
 }
 
 impl fmt::Display for AsnSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let last_i = self.elements.len() - 1;
-        for i in 0..self.elements.len() {
-            match &self.elements[i] {
-                AsnOrAsnRange::Asn(asn) => asn.fmt(f)?,
-                AsnOrAsnRange::Range(range) => range.fmt(f)?
-            }
+        let last_i = self.ranges.len() - 1;
+        for i in 0..self.ranges.len() {
+            self.ranges[i].fmt(f)?;
             if i != last_i {
                 write!(f, ", ")?;
             }
