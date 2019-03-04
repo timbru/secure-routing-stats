@@ -8,6 +8,7 @@ use std::ops::Range;
 use intervaltree::IntervalTree;
 use serde::Serialize;
 use serde::Serializer;
+use std::cmp::Ordering;
 
 // https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
@@ -16,7 +17,144 @@ const IPV4_UNUSED: u128 = 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000;
 
 //------------ Asn ----------------------------------------------------------
 
-pub type Asn = u32;
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct Asn {
+    val: u32
+}
+
+impl Ord for Asn {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.val.cmp(&other.val)
+    }
+}
+
+impl PartialOrd for Asn {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.val.partial_cmp(&other.val)
+    }
+}
+
+impl AsRef<u32> for Asn {
+    fn as_ref(&self) -> &u32 {
+        &self.val
+    }
+}
+
+impl FromStr for Asn {
+    type Err = AsnError;
+
+    fn from_str(s: &str) -> Result<Self, AsnError> {
+        let val = s.to_lowercase().replace("as", "");
+        let val = u32::from_str(&val).map_err(|_| AsnError::InvalidAsn)?;
+        Ok(Asn { val })
+    }
+}
+
+impl fmt::Display for Asn {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "AS{}", self.val)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct AsnRange {
+    min: Asn,
+    max: Asn
+}
+
+impl AsnRange {
+    pub fn contains(&self, asn: &Asn) -> bool {
+        self.min <= *asn && self.max >= *asn
+    }
+}
+
+impl FromStr for AsnRange {
+    type Err = AsnError;
+
+    fn from_str(s: &str) -> Result<Self, AsnError> {
+        let values: Vec<&str> = s.split('-').collect();
+
+        if values.len() != 2 {
+            return Err(AsnError::InvalidRange)
+        }
+
+        let min = Asn::from_str(values[0])?;
+        let max = Asn::from_str(values[1])?;
+
+        Ok(AsnRange { min, max })
+    }
+}
+
+impl fmt::Display for AsnRange {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}-{}", self.min, self.max)
+    }
+}
+
+pub enum AsnOrAsnRange {
+    Asn(Asn),
+    Range(AsnRange)
+}
+
+pub struct AsnSet {
+    elements: Vec<AsnOrAsnRange>
+}
+
+impl AsnSet {
+    pub fn contains(&self, asn: &Asn) -> bool {
+        for el in &self.elements {
+            match el {
+                AsnOrAsnRange::Range(range) => {
+                    if range.contains(asn) {
+                        return true;
+                    }
+                }
+                AsnOrAsnRange::Asn(asn_el) => {
+                    if asn == asn_el {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+
+impl FromStr for AsnSet {
+    type Err = AsnError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let string = s.replace(" ", "");
+        let mut elements = vec![];
+        for el in string.split(',') {
+            if el.contains('-') {
+                let range = AsnRange::from_str(&el)?;
+                elements.push(AsnOrAsnRange::Range(range));
+            } else {
+                let asn = Asn::from_str(&el)?;
+                elements.push(AsnOrAsnRange::Asn(asn));
+            }
+        }
+        Ok(AsnSet { elements })
+    }
+}
+
+impl fmt::Display for AsnSet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let last_i = self.elements.len() - 1;
+        for i in 0..self.elements.len() {
+            match &self.elements[i] {
+                AsnOrAsnRange::Asn(asn) => asn.fmt(f)?,
+                AsnOrAsnRange::Range(range) => range.fmt(f)?
+            }
+            if i != last_i {
+                write!(f, ", ")?;
+            }
+        }
+
+        Ok(())
+    }
+}
 
 
 //------------ IpAddressFamily -----------------------------------------------
@@ -551,6 +689,19 @@ impl From<IpRangeError> for IpRespourceSetError {
 
 impl From<IpPrefixError> for IpRespourceSetError {
     fn from(e: IpPrefixError) -> Self { IpRespourceSetError::IpPrefixError(e)}
+}
+
+
+#[derive(Debug, Display)]
+pub enum AsnError {
+    #[display(fmt="Expected comma separated ASNs or ASN ranges")]
+    ExpectedCommaSeparated,
+
+    #[display(fmt="Invalid range. Expected something like: AS1-AS3")]
+    InvalidRange,
+
+    #[display(fmt="Invalid ASN. Expected something like: 1 or AS1")]
+    InvalidAsn,
 }
 
 

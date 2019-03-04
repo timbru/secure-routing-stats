@@ -11,6 +11,7 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
 use crate::ip::Asn;
+use crate::ip::AsnError;
 use crate::ip::IpPrefixError;
 use crate::ip::IpPrefix;
 use crate::ip::IpRange;
@@ -57,12 +58,14 @@ impl AsRef<IpRange> for Announcement {
 }
 
 
-//------------ RisAnnouncements ----------------------------------------------
+//------------ Announcements -------------------------------------------------
 
-pub type RisAnnouncements = IpRangeTree<Announcement>;
+pub struct Announcements {
+    tree: IpRangeTree<Announcement>
+}
 
-impl RisAnnouncements {
-    pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
+impl Announcements {
+    pub fn from_ris(path: &PathBuf) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
@@ -96,7 +99,17 @@ impl RisAnnouncements {
             builder.add(ann);
         }
 
-        Ok(builder.build())
+        Ok(Announcements { tree: builder.build() })
+    }
+
+    pub fn all(&self) -> Vec<&Announcement>{
+        self.tree.all()
+    }
+
+    /// Matches announcements that match the given range exactly, or which
+    /// are more specific (i.e. the have a longer matching common part).
+    pub fn eq_or_longer(&self, range: &IpRange) -> Vec<&Announcement> {
+        self.tree.matching_or_more_specific(range)
     }
 }
 
@@ -133,6 +146,10 @@ impl From<ParseIntError> for Error {
     fn from(e: ParseIntError) -> Self { Error::parse_error(e) }
 }
 
+impl From<AsnError> for Error {
+    fn from(e: AsnError) -> Self { Error::parse_error(e) }
+}
+
 //------------ Tests --------------------------------------------------------
 
 #[cfg(test)]
@@ -142,14 +159,14 @@ mod tests {
     #[test]
     fn should_read_from_file() {
         let path = PathBuf::from("test/20181017/riswhoisdump.IPv4");
-        let announcements = RisAnnouncements::from_file(&path).unwrap();
+        let announcements = Announcements::from_ris(&path).unwrap();
 
         let test_ann = Announcement {
-            asn: 13335,
+            asn: Asn::from_str("AS13335").unwrap(),
             prefix: IpPrefix::from_str("1.0.0.0/24").unwrap()
         };
 
-        let matches = announcements.matching_or_more_specific(test_ann.as_ref());
+        let matches = announcements.eq_or_longer(test_ann.as_ref());
 
         assert_eq!(matches.len(), 1);
     }

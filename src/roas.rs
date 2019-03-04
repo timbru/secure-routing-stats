@@ -13,6 +13,7 @@ use crate::ip::IpPrefix;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
+use ip::AsnError;
 
 
 //------------ ValidatedRoaPrefix --------------------------------------------
@@ -52,7 +53,7 @@ impl FromStr for ValidatedRoaPayload {
         let mut values = line.split(',');
 
         let asn_str = values.next().ok_or(Error::MissingColumn)?;
-        let asn = u32::from_str(&asn_str.replace("AS", ""))?;
+        let asn = Asn::from_str(asn_str)?;
 
         let prefix_str = values.next().ok_or(Error::MissingColumn)?;
         let prefix = IpPrefix::from_str(prefix_str)?;
@@ -124,6 +125,9 @@ impl From<ParseIntError> for Error {
     fn from(e: ParseIntError) -> Self { Error::parse_error(e) }
 }
 
+impl From<AsnError> for Error {
+    fn from(e: AsnError) -> Self { Error::parse_error(e) }
+}
 
 //------------ Tests --------------------------------------------------------
 

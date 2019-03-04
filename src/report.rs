@@ -1,5 +1,6 @@
 //! Reporting of the stats found
 use std::collections::HashMap;
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
@@ -7,7 +8,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use clap::ArgMatches;
 use crate::announcements::Announcement;
-use crate::announcements::RisAnnouncements;
+use crate::announcements::Announcements;
 use crate::delegations::IpDelegation;
 use crate::delegations::IpDelegations;
 use crate::ip::IpRange;
@@ -19,7 +20,6 @@ use crate::roas::ValidatedRoaPayload;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
-use std::cmp::Ordering;
 
 
 //------------ CountryStat --------------------------------------------------
@@ -317,8 +317,7 @@ pub struct WorldStatsReport;
 impl WorldStatsReport {
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
-        let announcements: IpRangeTree<Announcement> =
-            RisAnnouncements::from_file(&options.dump).unwrap();
+        let announcements = Announcements::from_ris(&options.dump).unwrap();
 
         let roas: IpRangeTree<ValidatedRoaPayload> =
             Roas::from_file(&options.roas).unwrap();
@@ -329,23 +328,19 @@ impl WorldStatsReport {
 
         let mut country_stats = CountryStats::default();
 
-        for el in announcements.inner().iter() {
-            for ann in el.value.iter() {
+        for ann in announcements.all() {
+            let matching_roas = roas.matching_or_less_specific(ann.as_ref());
+            let validated = ValidatedAnnouncement::create(ann, &matching_roas);
+            let cc = Self::find_cc(&delegations, ann.as_ref());
 
-                let matching_roas = roas.matching_or_less_specific(ann.as_ref());
-                let validated = ValidatedAnnouncement::create(ann, &matching_roas);
-                let cc = Self::find_cc(&delegations, ann.as_ref());
-
-                country_stats.add_ann(&validated, cc);
-            }
+            country_stats.add_ann(&validated, cc);
         }
 
         for vrps in roas.inner().iter() {
             for vrp in &vrps.value {
-                let anns = announcements.matching_or_more_specific(
-                    vrp.prefix().as_ref());
+                let anns = announcements.eq_or_longer(vrp.as_ref());
 
-                let impact = VrpImpact::evaluate(&vrp, &anns);
+                let impact = VrpImpact::evaluate(vrp, &anns);
                 let cc = Self::find_cc(&delegations, vrp.prefix().as_ref());
 
                 country_stats.add_impact(&impact, cc);
@@ -466,15 +461,14 @@ impl InvalidsOpts {
 
 /// Used to report invalids, perhaps unsurprisingly.
 pub struct InvalidsReport {
-    announcements: IpRangeTree<Announcement>,
+    announcements: Announcements,
     roas: IpRangeTree<ValidatedRoaPayload>
 }
 
 impl InvalidsReport {
     pub fn execute(options: &InvalidsOpts) -> Result<(), Error> {
 
-        let announcements: IpRangeTree<Announcement> =
-            RisAnnouncements::from_file(&options.dump).unwrap();
+        let announcements = Announcements::from_ris(&options.dump).unwrap();
 
         let roas: IpRangeTree<ValidatedRoaPayload> =
             Roas::from_file(&options.roas).unwrap();
@@ -502,10 +496,8 @@ impl InvalidsReport {
     fn report_all(&self) -> InvalidsResult {
         let mut res = InvalidsResult::default();
 
-        for el in self.announcements.inner().iter() {
-            for ann in el.value.iter() {
-                res.add(self.validate(ann));
-            }
+        for ann in self.announcements.all() {
+            res.add(self.validate(ann));
         }
 
         res
@@ -515,7 +507,7 @@ impl InvalidsReport {
         let mut res = InvalidsResult::default();
 
         for range in set.ranges() {
-            for ann in self.announcements.matching_or_more_specific(&range) {
+            for ann in self.announcements.eq_or_longer(&range) {
                 res.add(self.validate(ann));
             }
         }
@@ -607,14 +599,13 @@ impl InvalidsResultTotals {
 //------------ SeenReport ----------------------------------------------------
 
 pub struct SeenReport {
-    announcements: IpRangeTree<Announcement>,
+    announcements: Announcements,
     roas: IpRangeTree<ValidatedRoaPayload>
 }
 
 impl SeenReport {
     pub fn execute(options: &InvalidsOpts) -> Result<(), Error> {
-        let announcements: IpRangeTree<Announcement> =
-            RisAnnouncements::from_file(&options.dump).unwrap();
+        let announcements = Announcements::from_ris(&options.dump).unwrap();
 
         let roas: IpRangeTree<ValidatedRoaPayload> =
             Roas::from_file(&options.roas).unwrap();
@@ -646,9 +637,7 @@ impl SeenReport {
     }
 
     fn verify_vrp(&self, vrp: &ValidatedRoaPayload) -> VrpImpact {
-        let anns = self.announcements
-                        .matching_or_more_specific(vrp.prefix().as_ref());
-
+        let anns = self.announcements.eq_or_longer(vrp.as_ref());
         VrpImpact::evaluate(vrp, &anns)
     }
 }
