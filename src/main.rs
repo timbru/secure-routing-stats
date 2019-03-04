@@ -15,6 +15,9 @@ use secure_routing_stats::report::resources::{
     ResourceReporter,
     ResourceReportOpts
 };
+use secure_routing_stats::server::ServerOpts;
+use secure_routing_stats::server::StatsApp;
+use secure_routing_stats::server;
 
 fn main() {
     match Options::create() {
@@ -31,6 +34,10 @@ fn main() {
                 Options::ResourceStats(opts) => {
                     ResourceReporter::execute(&opts)
                         .map_err(Error::ResourceReportError)
+                },
+                Options::Daemon(opts) => {
+                    StatsApp::run(&opts)
+                        .map_err(Error::DaemonError)
                 }
             };
             match res {
@@ -46,7 +53,8 @@ fn main() {
 
 enum Options {
     WorldStats(WorldStatsOpts),
-    ResourceStats(ResourceReportOpts)
+    ResourceStats(ResourceReportOpts),
+    Daemon(ServerOpts)
 }
 
 impl Options {
@@ -109,12 +117,17 @@ impl Options {
                     .help("Specify output format, defaults to json")
                     .required(false))
             )
+            .subcommand(SubCommand::with_name("daemon")
+                .about("Run as an HTTP server")
+            )
             .get_matches();
 
         if matches.subcommand_matches("world").is_some() {
             Ok(Options::WorldStats(WorldStatsOpts::parse(&matches)?))
         } else if matches.subcommand_matches("resources").is_some() {
             Ok(Options::ResourceStats(ResourceReportOpts::parse(&matches)?))
+        } else if matches.subcommand_matches("daemon").is_some() {
+            Ok(Options::Daemon(ServerOpts::parse(&matches)?))
         } else {
             Err(Error::msg("No sub-command given. See --help for options."))
         }
@@ -134,6 +147,9 @@ pub enum Error {
 
     #[display(fmt="{}", _0)]
     ResourceReportError(resources::Error),
+
+    #[display(fmt="{}", _0)]
+    DaemonError(server::Error),
 }
 
 impl Error {
@@ -148,5 +164,9 @@ impl From<world::Error> for Error {
 
 impl From<resources::Error> for Error {
     fn from(e: resources::Error) -> Self { Error::ResourceReportError(e) }
+}
+
+impl From<server::Error> for Error {
+    fn from(e: server::Error) -> Self { Error::DaemonError(e) }
 }
 

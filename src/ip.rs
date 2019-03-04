@@ -535,6 +535,7 @@ impl Serialize for IpResourceSet {
 
 //------------ IpRangeTree --------------------------------------------------
 
+#[derive(Debug)]
 pub struct IpRangeTree<V: AsRef<IpRange>> {
     tree: IntervalTree<u128, Vec<V>>
 }

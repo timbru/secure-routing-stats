@@ -82,6 +82,7 @@ impl fmt::Display for ValidatedRoaPayload {
 
 //------------ Vrps ----------------------------------------------------------
 
+#[derive(Debug)]
 pub struct Vrps {
     tree: IpRangeTree<ValidatedRoaPayload>
 }

@@ -61,6 +61,7 @@ impl AsRef<IpRange> for Announcement {
 
 //------------ Announcements -------------------------------------------------
 
+#[derive(Debug)]
 pub struct Announcements {
     tree: IpRangeTree<Announcement>
 }
