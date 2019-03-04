@@ -12,7 +12,7 @@ use secure_routing_stats::report::world::{
 };
 use secure_routing_stats::report::resources::{
     self,
-    ResourceReport,
+    ResourceReporter,
     ResourceReportOpts
 };
 
@@ -29,7 +29,7 @@ fn main() {
                         .map_err(Error::WorldReportError)
                 }
                 Options::ResourceStats(opts) => {
-                    ResourceReport::execute(&opts)
+                    ResourceReporter::execute(&opts)
                         .map_err(Error::ResourceReportError)
                 }
             };

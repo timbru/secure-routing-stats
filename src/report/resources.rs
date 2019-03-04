@@ -85,28 +85,28 @@ pub enum ReportFormat {
 }
 
 
-//------------ ResourceReport -----------------------------------------------
+//------------ ResourceReporter ---------------------------------------------
 
-pub struct ResourceReport;
+pub struct ResourceReporter {
+    announcements: Announcements,
+    vrps: Vrps
+}
 
-impl ResourceReport {
-    pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
-
-        let announcements = Announcements::from_ris(
-            &options.ris4, &options.ris6
-        )?;
-        let vrps = Vrps::from_file(&options.vrps)?;
-
+impl ResourceReporter {
+    pub fn analyse(
+        &self,
+        scope: &ScopeLimits
+    ) -> Result<ResourceReportResult, Error> {
         let mut anns_res = AnnouncementsResult::default();
-        for ann in announcements.in_scope(options.scope()) {
-            let matching_roas = vrps.containing(ann.as_ref());
+        for ann in self.announcements.in_scope(scope) {
+            let matching_roas = self.vrps.containing(ann.as_ref());
             let validated = ValidatedAnnouncement::create(ann, &matching_roas);
             anns_res.add(validated);
         }
 
         let mut vrps_res = VisibilityResult::default();
-        for vrp in vrps.in_scope(options.scope()) {
-            let matching_anns = announcements.contained_by(vrp.as_ref());
+        for vrp in self.vrps.in_scope(scope) {
+            let matching_anns = self.announcements.contained_by(vrp.as_ref());
             let impact = VrpImpact::evaluate(vrp, &matching_anns);
             vrps_res.add(vrp, &impact);
         }
@@ -115,6 +115,19 @@ impl ResourceReport {
             announcements: anns_res,
             vrps: vrps_res
         };
+
+        Ok(res)
+    }
+
+    pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
+
+        let announcements = Announcements::from_ris(
+            &options.ris4, &options.ris6
+        )?;
+        let vrps = Vrps::from_file(&options.vrps)?;
+
+        let reporter = ResourceReporter { announcements, vrps };
+        let res = reporter.analyse(options.scope())?;
 
         match options.format {
             ReportFormat::Json => println!("{}", serde_json::to_string(&res)?),
