@@ -206,33 +206,8 @@ impl CountryStats {
         }
         s
     }
-}
 
-impl Display for CountryStats {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Overall")?;
-        writeln!(f, "  {}", &self.stats["all"])?;
-        writeln!(f)?;
-        writeln!(f, "Per country:")?;
-
-        #[derive(Eq, PartialEq)]
-        struct CountryStatWithCode<'a> {
-            cc: &'a str,
-            stat: &'a CountryStat
-        }
-
-        impl<'a> Ord for CountryStatWithCode<'a> {
-            fn cmp(&self, other: &Self) -> Ordering {
-                self.cc.cmp(other.cc)
-            }
-        }
-
-        impl<'a> PartialOrd for CountryStatWithCode<'a> {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                Some(self.cmp(other))
-            }
-        }
-
+    fn get_sorted_countries(&self) -> Vec<CountryStatWithCode> {
         let mut countries: Vec<CountryStatWithCode> = vec![];
 
         for (cc, stat) in self.stats.iter() {
@@ -242,11 +217,69 @@ impl Display for CountryStats {
         }
 
         countries.sort();
+        countries
+    }
+
+    pub fn to_csv(&self) -> String {
+        let mut s = String::new();
+        writeln!(s, "iso2, coverage, accuracy, seen").unwrap();
+
+        let countries = self.get_sorted_countries();
+
+        for country in countries {
+            let coverage = country.stat.f_adoption();
+            let accuracy = country.stat.f_quality().unwrap_or(0.);
+            let seen = country.stat.f_seen().unwrap_or(0.);
+
+            if coverage > 0. {
+                writeln!(
+                    s,
+                    "{}, {}, {}, {}",
+                    country.cc,
+                    coverage,
+                    accuracy,
+                    seen
+                ).unwrap();
+            }
+
+        }
+
+        s
+    }
+}
+
+impl Display for CountryStats {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Overall")?;
+        writeln!(f, "  {}", &self.stats["all"])?;
+        writeln!(f)?;
+        writeln!(f, "Per country:")?;
+
+        let countries = self.get_sorted_countries();
         for country in countries {
             writeln!(f, "{}: {}", country.cc, country.stat)?;
         }
 
         Ok(())
+    }
+}
+
+
+#[derive(Eq, PartialEq)]
+struct CountryStatWithCode<'a> {
+    cc: &'a str,
+    stat: &'a CountryStat
+}
+
+impl<'a> Ord for CountryStatWithCode<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cc.cmp(other.cc)
+    }
+}
+
+impl<'a> PartialOrd for CountryStatWithCode<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

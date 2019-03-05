@@ -25,6 +25,7 @@ use report::ScopeLimits;
 use futures::Future;
 use actix_web::dev::MessageBody;
 use report::resources::ResourceReporter;
+use actix_web::fs;
 
 
 const NOT_FOUND: &[u8] = include_bytes!("../templates/not_found.html");
@@ -94,6 +95,14 @@ impl StatsApp {
             .resource("/api/world.json", |r| {
                 r.method(Method::GET).f(Self::world_json)
             })
+            .resource("/api/world.csv", |r| {
+                r.method(Method::GET).f(Self::world_csv)
+            })
+            .handler(
+                "/d3-geomap",
+                fs::StaticFiles::new("./d3-geomap")
+                    .unwrap()
+                    .show_files_listing())
             .default_resource(|r| {
                 // 404 for GET request
                 r.method(Method::GET).f(Self::p404);
@@ -157,6 +166,22 @@ impl StatsApp {
         let stats = reporter.analyse();
 
         Self::render_json(&stats)
+    }
+
+    fn world_csv(req: &HttpRequest) -> HttpResponse {
+        let server: &Arc<StatsServer> = req.state();
+        let reporter = WorldStatsReporter::new(
+            &server.sources.announcements,
+            &server.sources.vrps,
+            &server.sources.delegations,
+        );
+
+        let stats = reporter.analyse();
+        let csv = stats.to_csv();
+
+        HttpResponse::Ok()
+            .content_type("text/csv")
+            .body(csv)
     }
 
     fn render_json<O: Serialize>(obj: &O) -> HttpResponse {
