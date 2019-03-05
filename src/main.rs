@@ -8,7 +8,7 @@ use clap::SubCommand;
 use secure_routing_stats::report::world::{
     self,
     WorldStatsOpts,
-    WorldStatsReport
+    WorldStatsReporter
 };
 use secure_routing_stats::report::resources::{
     self,
@@ -28,7 +28,7 @@ fn main() {
         Ok(option) => {
             let res = match option {
                 Options::WorldStats(opts) => {
-                    WorldStatsReport::execute(&opts)
+                    WorldStatsReporter::execute(&opts)
                         .map_err(Error::WorldReportError)
                 }
                 Options::ResourceStats(opts) => {
@@ -62,30 +62,30 @@ impl Options {
         let matches = App::new("NLnet Labs RRDP Server")
             .version("0.1b")
             .about("Analyse ROA quality vs BGP")
-            .arg(Arg::with_name("ris4")
-                .short("4")
-                .long("ris4")
-                .value_name("FILE")
-                .help("RIS dump v4.")
-                .required(true))
-            .arg(Arg::with_name("ris6")
-                .short("6")
-                .long("ris6")
-                .value_name("FILE")
-                .help("RIS dump v6.")
-                .required(true))
-            .arg(Arg::with_name("vrps")
-                .short("v")
-                .long("vrps")
-                .value_name("FILE")
-                .help("Validated ROAs Payloads CSV file.")
-                .required(true))
 
             .subcommand(SubCommand::with_name("world")
                 .about("Report ROA quality on a per country basis")
-                .arg(Arg::with_name("stats")
-                    .short("s")
-                    .long("stats")
+                .arg(Arg::with_name("ris4")
+                    .short("4")
+                    .long("ris4")
+                    .value_name("FILE")
+                    .help("RIS dump v4.")
+                    .required(true))
+                .arg(Arg::with_name("ris6")
+                    .short("6")
+                    .long("ris6")
+                    .value_name("FILE")
+                    .help("RIS dump v6.")
+                    .required(true))
+                .arg(Arg::with_name("vrps")
+                    .short("v")
+                    .long("vrps")
+                    .value_name("FILE")
+                    .help("Validated ROAs Payloads CSV file.")
+                    .required(true))
+                .arg(Arg::with_name("delegations")
+                    .short("d")
+                    .long("delegations")
                     .value_name("FILE")
                     .help("Delegation stats (NRO extended delegated stats format).")
                     .required(true))
@@ -98,6 +98,24 @@ impl Options {
             )
             .subcommand(SubCommand::with_name("resources")
                 .about("Report ROA quality on a resource basis")
+                .arg(Arg::with_name("ris4")
+                    .short("4")
+                    .long("ris4")
+                    .value_name("FILE")
+                    .help("RIS dump v4.")
+                    .required(true))
+                .arg(Arg::with_name("ris6")
+                    .short("6")
+                    .long("ris6")
+                    .value_name("FILE")
+                    .help("RIS dump v6.")
+                    .required(true))
+                .arg(Arg::with_name("vrps")
+                    .short("v")
+                    .long("vrps")
+                    .value_name("FILE")
+                    .help("Validated ROAs Payloads CSV file.")
+                    .required(true))
                 .arg(Arg::with_name("ips")
                     .short("i")
                     .long("ips")
@@ -119,14 +137,38 @@ impl Options {
             )
             .subcommand(SubCommand::with_name("daemon")
                 .about("Run as an HTTP server")
+                .arg(Arg::with_name("ris4")
+                    .short("4")
+                    .long("ris4")
+                    .value_name("FILE")
+                    .help("RIS dump v4.")
+                    .required(true))
+                .arg(Arg::with_name("ris6")
+                    .short("6")
+                    .long("ris6")
+                    .value_name("FILE")
+                    .help("RIS dump v6.")
+                    .required(true))
+                .arg(Arg::with_name("vrps")
+                    .short("v")
+                    .long("vrps")
+                    .value_name("FILE")
+                    .help("Validated ROAs Payloads CSV file.")
+                    .required(true))
+                .arg(Arg::with_name("delegations")
+                    .short("d")
+                    .long("delegations")
+                    .value_name("FILE")
+                    .help("Delegation stats (NRO extended delegated stats format).")
+                    .required(true))
             )
             .get_matches();
 
-        if matches.subcommand_matches("world").is_some() {
+        if let Some(matches) = matches.subcommand_matches("world") {
             Ok(Options::WorldStats(WorldStatsOpts::parse(&matches)?))
-        } else if matches.subcommand_matches("resources").is_some() {
+        } else if let Some(matches) = matches.subcommand_matches("resources") {
             Ok(Options::ResourceStats(ResourceReportOpts::parse(&matches)?))
-        } else if matches.subcommand_matches("daemon").is_some() {
+        } else if let Some(matches) = matches.subcommand_matches("daemon") {
             Ok(Options::Daemon(ServerOpts::parse(&matches)?))
         } else {
             Err(Error::msg("No sub-command given. See --help for options."))

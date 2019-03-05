@@ -128,7 +128,10 @@ impl AsRef<IpRange> for IpDelegation {
 
 //------------ IpDelegations ------------------------------------------------
 
-pub type IpDelegations = IpRangeTree<IpDelegation>;
+#[derive(Debug)]
+pub struct IpDelegations {
+    tree: IpRangeTree<IpDelegation>
+}
 
 impl IpDelegations {
     pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
@@ -148,7 +151,15 @@ impl IpDelegations {
             builder.add(delegation);
         };
 
-        Ok(builder.build())
+        Ok(IpDelegations { tree: builder.build()} )
+    }
+
+    pub fn find_cc(&self, range: &IpRange) -> &str {
+        let matching = self.tree.matching_or_less_specific(range);
+        match matching.first() {
+            Some(delegation) => &delegation.cc(),
+            None => "XX"
+        }
     }
 }
 

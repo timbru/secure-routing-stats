@@ -17,7 +17,7 @@ const IPV4_UNUSED: u128 = 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000;
 
 //------------ Asn ----------------------------------------------------------
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 pub struct Asn {
     val: u32
 }
@@ -66,8 +66,8 @@ pub struct AsnRange {
 }
 
 impl AsnRange {
-    pub fn contains(&self, asn: &Asn) -> bool {
-        self.min <= *asn && self.max >= *asn
+    pub fn contains(&self, asn: Asn) -> bool {
+        self.min <= asn && self.max >= asn
     }
 }
 
@@ -101,19 +101,36 @@ impl fmt::Display for AsnRange {
 
 //------------ AsnSet --------------------------------------------------------
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AsnSet {
     ranges: Vec<AsnRange>
 }
 
 impl AsnSet {
-    pub fn contains(&self, asn: &Asn) -> bool {
+    pub fn empty() -> Self {
+        AsnSet { ranges: vec![] }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ranges.is_empty()
+    }
+
+    pub fn contains(&self, asn: Asn) -> bool {
         for range in &self.ranges {
             if range.contains(asn) {
                 return true;
             }
         }
         false
+    }
+
+    pub fn add_range(&mut self, range: AsnRange) {
+        self.ranges.push(range);
+    }
+
+    pub fn add_asn(&mut self, asn: Asn) {
+        let range = AsnRange { min: asn, max: asn };
+        self.ranges.push(range);
     }
 }
 
@@ -129,7 +146,7 @@ impl FromStr for AsnSet {
                 elements.push(range);
             } else {
                 let asn = Asn::from_str(&el)?;
-                let range = AsnRange { min: asn.clone(), max: asn};
+                let range = AsnRange { min: asn, max: asn};
                 elements.push(range);
             }
         }
@@ -163,7 +180,7 @@ pub enum IpAddressFamily {
 
 //------------ IpAddress -----------------------------------------------------
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct IpAddress {
     value: u128
 }
@@ -243,7 +260,7 @@ impl FromStr for IpAddress {
 
 //------------ IpRange -------------------------------------------------------
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct IpRange {
     min: IpAddress,
     max: IpAddress,
@@ -421,7 +438,7 @@ impl Serialize for IpPrefix {
 
 //------------ IpResourceSet -------------------------------------------------
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct IpResourceSet {
     ranges: Vec<IpRange>
 }
@@ -454,6 +471,11 @@ impl IpResourceSet {
         self.ranges = keep;
     }
 
+    pub fn add_ip_address(&mut self, ip_address: IpAddress) {
+        let range = IpRange { min: ip_address, max: ip_address };
+        self.add_ip_range(range);
+    }
+
     pub fn remove_ip_range(&mut self, range_to_remove: IpRange) {
         let (intersecting, mut keep) = self.partition_intersecting(range_to_remove);
 
@@ -480,6 +502,10 @@ impl IpResourceSet {
 
     pub fn ranges(&self) -> &Vec<IpRange> {
         &self.ranges
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ranges.is_empty()
     }
 }
 

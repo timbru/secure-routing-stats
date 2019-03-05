@@ -28,7 +28,7 @@ pub struct ValidatedRoaPayload {
 }
 
 impl ValidatedRoaPayload {
-    pub fn asn(&self) -> &Asn { &self.asn }
+    pub fn asn(&self) -> Asn { self.asn }
     pub fn prefix(&self) -> &IpPrefix { &self.prefix }
     pub fn max_length(&self) -> u8 { self.max_length }
 }
@@ -109,16 +109,17 @@ impl Vrps {
     }
 
     pub fn in_scope(&self, scope: &ScopeLimits) -> Vec<&ValidatedRoaPayload> {
-        let mut vrps = match scope.ips() {
-            None => self.all(),
-            Some(set) => {
-                set.ranges().iter().flat_map(|range|
-                    self.contained_by(range)
-                ).collect()
-            }
+        let mut vrps = if scope.limits_ips() {
+            let set = scope.ips();
+            set.ranges().iter().flat_map(|range|
+                self.contained_by(range)
+            ).collect()
+        } else {
+            self.all()
         };
 
-        if let Some(set) = scope.asns() {
+        if scope.limits_asns() {
+            let set = scope.asns();
             vrps.retain(|vrp| set.contains(vrp.asn()))
         }
 

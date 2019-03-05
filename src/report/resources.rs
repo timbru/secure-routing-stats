@@ -42,21 +42,19 @@ impl ResourceReportOpts {
         let vrps_file = matches.value_of("vrps").unwrap();
         let vrps = PathBuf::from(vrps_file);
 
-        let matches = matches.subcommand_matches("resources").unwrap();
-
         let ips = {
             if let Some(ips) = matches.value_of("ips") {
-                Some(IpResourceSet::from_str(ips)?)
+                IpResourceSet::from_str(ips)?
             } else {
-                None
+                IpResourceSet::empty()
             }
         };
 
         let asns = {
             if let Some(asns) = matches.value_of("asns") {
-                Some(AsnSet::from_str(asns)?)
+                AsnSet::from_str(asns)?
             } else {
-                None
+                AsnSet::empty()
             }
         };
 
@@ -87,16 +85,22 @@ pub enum ReportFormat {
 
 //------------ ResourceReporter ---------------------------------------------
 
-pub struct ResourceReporter {
-    announcements: Announcements,
-    vrps: Vrps
+pub struct ResourceReporter<'a> {
+    announcements: &'a Announcements,
+    vrps: &'a Vrps
 }
 
-impl ResourceReporter {
-    pub fn analyse(
-        &self,
-        scope: &ScopeLimits
-    ) -> Result<ResourceReportResult, Error> {
+impl<'a> ResourceReporter<'a> {
+    pub fn new(
+        announcements: &'a Announcements,
+        vrps: &'a Vrps
+    ) -> Self {
+        ResourceReporter {
+            announcements, vrps
+        }
+    }
+
+    pub fn analyse(&self, scope: &ScopeLimits) -> ResourceReportResult {
         let mut anns_res = AnnouncementsResult::default();
         for ann in self.announcements.in_scope(scope) {
             let matching_roas = self.vrps.containing(ann.as_ref());
@@ -111,12 +115,10 @@ impl ResourceReporter {
             vrps_res.add(vrp, &impact);
         }
 
-        let res = ResourceReportResult {
+        ResourceReportResult {
             announcements: anns_res,
             vrps: vrps_res
-        };
-
-        Ok(res)
+        }
     }
 
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
@@ -126,8 +128,9 @@ impl ResourceReporter {
         )?;
         let vrps = Vrps::from_file(&options.vrps)?;
 
-        let reporter = ResourceReporter { announcements, vrps };
-        let res = reporter.analyse(options.scope())?;
+        let reporter = ResourceReporter::new(&announcements, &vrps);
+
+        let res = reporter.analyse(options.scope());
 
         match options.format {
             ReportFormat::Json => println!("{}", serde_json::to_string(&res)?),

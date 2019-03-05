@@ -77,30 +77,30 @@ disregarded.
 
 Default output format is json. Example:
 ```
-$ secure_routing_stats \
+$ secure_routing_stats world \
       --ris4 test/20190304/riswhoisdump.IPv4 \
       --ris6 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
-      world --stats test/20190304/delegated-extended.txt 
+      --delegations test/20190304/delegated-extended.txt 
 ```
 
 Alternatively this can produce an world map html file. Example:
 ```
-$ secure_routing_stats \
+$ secure_routing_stats world\
       --ris4 test/20190304/riswhoisdump.IPv4 \
       --ris6 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
-      world --stats test/20190304/delegated-extended.txt \
+      --delegations test/20190304/delegated-extended.txt \
       --format html
 ```
 
 Finally, you can also get a simple text output:
 ```
-$ secure_routing_stats \
+$ secure_routing_stats world\
       --ris4 test/20190304/riswhoisdump.IPv4 \
       --ris6 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
-      world --stats test/20190304/delegated-extended.txt \
+      --delegations test/20190304/delegated-extended.txt \
       --format text
 ```
 
@@ -112,11 +112,10 @@ visibility of Validated ROA Payloads in BGP.
 
 This defaults to all resources when run like this:
 ```
-$ secure_routing_stats \
+$ secure_routing_stats resources \
       --ris4 test/20190304/riswhoisdump.IPv4 \
       --ris6 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
-      resources
 ```
 
 But in practice you will want to scope this report to specific IP resources, 
@@ -125,23 +124,44 @@ can also have text output:
 
 Examples:
 ```
-$ secure_routing_stats \
+$ secure_routing_stats resources \
       --ris4 test/20190304/riswhoisdump.IPv4 \
       --ris6 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
-      resources \
       --ips "185.49.140.0/22, 2a04:b900::/29" \
       --format text
 ```
 
 ```
-$ secure_routing_stats \
+$ secure_routing_stats resources \
       --ris4 test/20190304/riswhoisdump.IPv4 \
       --ris6 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
-      resources \
       --asns "AS199664, AS199665-AS199666"
 ```
+
+## Running as an HTTP daemon
+
+Finally, you have the option of running the stats as an HTTP daemon. The 
+application will read files at startup, and from there on you can use the 
+UI/API (both still unstable) to do queries.
+
+Example:
+```
+$ secure_routing_stats daemon \
+      --ris4 test/20190304/riswhoisdump.IPv4 \
+      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --vrps test/20190304/vrps.csv \
+      --delegations test/20190304/delegated-extended.txt 
+```
+
+The server will bind to port 8080, or die trying.
+
+In future we expect to have a better UI, and better functionality like 
+re-reading the files regularly from configurable sources so that you can just
+ leave things running. But for now, this is a start.
+ 
+ Look at the home page ```http://localhost:8080/``` for links to functionality. 
 
 
 

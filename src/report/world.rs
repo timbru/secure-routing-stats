@@ -7,10 +7,7 @@ use std::fmt::Write;
 use std::path::PathBuf;
 use clap::ArgMatches;
 use crate::announcements::Announcements;
-use crate::delegations::IpDelegation;
 use crate::delegations::IpDelegations;
-use crate::ip::IpRange;
-use crate::ip::IpRangeTree;
 use crate::ip::IpRespourceSetError;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
@@ -260,7 +257,7 @@ pub struct WorldStatsOpts {
     ris4: PathBuf,
     ris6: PathBuf,
     vrps: PathBuf,
-    stats: PathBuf,
+    dels: PathBuf,
     format: WorldStatsFormat
 }
 
@@ -276,10 +273,8 @@ impl WorldStatsOpts {
         let vrps_file = matches.value_of("vrps").unwrap();
         let vrps = PathBuf::from(vrps_file);
 
-        let matches = matches.subcommand_matches("world").unwrap();
-
-        let stats_file = matches.value_of("stats").unwrap();
-        let stats = PathBuf::from(stats_file);
+        let dels_file = matches.value_of("delegations").unwrap();
+        let dels = PathBuf::from(dels_file);
 
         let format = {
             if let Some(format) = matches.value_of("format") {
@@ -295,7 +290,7 @@ impl WorldStatsOpts {
             }
         };
 
-        Ok(WorldStatsOpts { ris4, ris6, vrps, stats, format })
+        Ok(WorldStatsOpts { ris4, ris6, vrps, dels, format })
     }
 }
 
@@ -310,13 +305,48 @@ pub enum WorldStatsFormat {
 }
 
 
-//------------ WorldStatsReport ----------------------------------------------
+//------------ WorldStatsReporter --------------------------------------------
 
 /// This type is used to create reports on a per country basis. Can export to
 /// json, or HTML using the template included in this source.
-pub struct WorldStatsReport;
+pub struct WorldStatsReporter<'a> {
+    announcements: &'a Announcements,
+    vrps: &'a Vrps,
+    delegations: &'a IpDelegations
+}
 
-impl WorldStatsReport {
+impl<'a> WorldStatsReporter<'a> {
+
+    pub fn new(
+        announcements: &'a Announcements,
+        vrps: &'a Vrps,
+        delegations: &'a IpDelegations
+    ) -> Self {
+        WorldStatsReporter { announcements, vrps, delegations }
+    }
+
+    pub fn analyse(&self) -> CountryStats {
+        let mut country_stats = CountryStats::default();
+
+        for ann in self.announcements.all() {
+            let matching_roas = self.vrps.containing(ann.as_ref());
+            let validated = ValidatedAnnouncement::create(ann, &matching_roas);
+            let cc = self.delegations.find_cc(ann.as_ref());
+
+            country_stats.add_ann(&validated, cc);
+        }
+
+        for vrp in self.vrps.all() {
+            let anns = self.announcements.contained_by(vrp.as_ref());
+
+            let impact = VrpImpact::evaluate(vrp, &anns);
+            let cc = self.delegations.find_cc(vrp.as_ref());
+
+            country_stats.add_impact(&impact, cc);
+        }
+
+        country_stats
+    }
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
         let announcements = Announcements::from_ris(
@@ -325,49 +355,19 @@ impl WorldStatsReport {
 
         let vrps = Vrps::from_file(&options.vrps).unwrap();
 
-        let delegations: IpRangeTree<IpDelegation> =
-            IpDelegations::from_file(&options.stats).unwrap();
+        let delegations = IpDelegations::from_file(&options.dels).unwrap();
 
+        let reporter = WorldStatsReporter::new(&announcements, &vrps, &delegations);
 
-        let mut country_stats = CountryStats::default();
-
-        for ann in announcements.all() {
-            let matching_roas = vrps.containing(ann.as_ref());
-            let validated = ValidatedAnnouncement::create(ann, &matching_roas);
-            let cc = Self::find_cc(&delegations, ann.as_ref());
-
-            country_stats.add_ann(&validated, cc);
-        }
-
-        for vrp in vrps.all() {
-            let anns = announcements.contained_by(vrp.as_ref());
-
-            let impact = VrpImpact::evaluate(vrp, &anns);
-            let cc = Self::find_cc(&delegations, vrp.prefix().as_ref());
-
-            country_stats.add_impact(&impact, cc);
-        }
+        let stats = reporter.analyse();
 
         match options.format {
-            WorldStatsFormat::Json => Self::json(&country_stats)?,
-            WorldStatsFormat::Html => Self::html(&country_stats)?,
-            WorldStatsFormat::Text => Self::text(&country_stats)
+            WorldStatsFormat::Json => Self::json(&stats)?,
+            WorldStatsFormat::Html => Self::html(&stats)?,
+            WorldStatsFormat::Text => Self::text(&stats)
         }
 
         Ok(())
-    }
-
-    fn find_cc<'a>(
-        delegations: &'a IpRangeTree<IpDelegation>,
-        range: &IpRange
-    ) -> &'a str {
-        let matching_delegations = delegations
-            .matching_or_less_specific(range);
-
-        match matching_delegations.first() {
-            Some(delegation) => &delegation.cc(),
-            None => "XX"
-        }
     }
 
     fn json(stats: &CountryStats) -> Result<(), Error> {

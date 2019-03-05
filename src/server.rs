@@ -16,14 +16,26 @@ use actix_web::server;
 use std::net::SocketAddr;
 use std::net::IpAddr;
 use std::str::FromStr;
+use delegations::IpDelegations;
+use delegations;
+use serde::Serialize;
+use report::world::WorldStatsReporter;
+use actix_web::FromRequest;
+use report::ScopeLimits;
+use futures::Future;
+use actix_web::dev::MessageBody;
+use report::resources::ResourceReporter;
+
 
 const NOT_FOUND: &[u8] = include_bytes!("../templates/not_found.html");
+const HOME: &[u8] = include_bytes!("../templates/home.html");
 
 
 pub struct ServerOpts {
     ris4: PathBuf,
     ris6: PathBuf,
     vrps: PathBuf,
+    dels: PathBuf,
 }
 
 impl ServerOpts {
@@ -37,14 +49,18 @@ impl ServerOpts {
         let vrps_file = matches.value_of("vrps").unwrap();
         let vrps = PathBuf::from(vrps_file);
 
-        Ok(ServerOpts { ris4, ris6, vrps })
+        let dels_file = matches.value_of("delegations").unwrap();
+        let dels = PathBuf::from(dels_file);
+
+        Ok(ServerOpts { ris4, ris6, vrps, dels })
     }
 }
 
 #[derive(Debug)]
 pub struct Sources {
     announcements: Announcements,
-    vrps: Vrps
+    vrps: Vrps,
+    delegations: IpDelegations
 }
 
 #[derive(Debug)]
@@ -56,8 +72,9 @@ impl StatsServer {
     fn create(opts: &ServerOpts) -> Result<Self, Error> {
         let announcements = Announcements::from_ris(&opts.ris4, &opts.ris6)?;
         let vrps = Vrps::from_file(&opts.vrps)?;
+        let delegations = IpDelegations::from_file(&opts.dels)?;
 
-        let sources = Sources { announcements, vrps };
+        let sources = Sources { announcements, vrps, delegations };
 
         Ok(StatsServer { sources })
     }
@@ -68,6 +85,15 @@ pub struct StatsApp(App<Arc<StatsServer>>);
 impl StatsApp {
     pub fn new(server: Arc<StatsServer>) -> Self {
         let app = App::with_state(server)
+            .resource("/", |r| {
+                r.method(Method::GET).f(Self::home)
+            })
+            .resource("/report", |r| {
+                r.method(Method::POST).with(Self::report)
+            })
+            .resource("/api/world.json", |r| {
+                r.method(Method::GET).f(Self::world_json)
+            })
             .default_resource(|r| {
                 // 404 for GET request
                 r.method(Method::GET).f(Self::p404);
@@ -103,7 +129,86 @@ impl StatsApp {
         HttpResponse::build(StatusCode::NOT_FOUND).body(NOT_FOUND)
     }
 
+    fn home(_req: &HttpRequest) -> HttpResponse {
+        HttpResponse::Ok().body(HOME)
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn report(req: HttpRequest, limits: ScopeLimits) -> HttpResponse {
+        let server: &Arc<StatsServer> = req.state();
+        let reporter = ResourceReporter::new(
+            &server.sources.announcements,
+            &server.sources.vrps
+        );
+
+        let stats = reporter.analyse(&limits);
+
+        Self::render_json(&stats)
+    }
+
+    fn world_json(req: &HttpRequest) -> HttpResponse {
+        let server: &Arc<StatsServer> = req.state();
+        let reporter = WorldStatsReporter::new(
+            &server.sources.announcements,
+            &server.sources.vrps,
+            &server.sources.delegations,
+        );
+
+        let stats = reporter.analyse();
+
+        Self::render_json(&stats)
+    }
+
+    fn render_json<O: Serialize>(obj: &O) -> HttpResponse {
+        match serde_json::to_string(obj) {
+            Ok(json) => {
+                HttpResponse::Ok()
+                    .content_type("application/json")
+                    .body(json)
+            },
+            Err(_) => Self::server_error()
+        }
+    }
+
+    fn server_error() -> HttpResponse {
+        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+            .body("I'm sorry Dave, I'm afraid I can't do that.")
+    }
+
+
 }
+
+impl<S: 'static> FromRequest<S> for ScopeLimits {
+    type Config = ();
+    type Result = Box<Future<Item=Self, Error=actix_web::Error>>;
+
+    fn from_request(
+        req: &actix_web::HttpRequest<S>,
+        _c: &Self::Config
+    ) -> Self::Result {
+
+        use std::str;
+
+        Box::new(MessageBody::new(req)
+            .from_err()
+            .and_then(|bytes| {
+                unsafe {
+                    let s: &str = str::from_utf8_unchecked(&bytes);
+                    let line = s.replace("scope=", "");
+                    let line = line.replace("%2C", ",");
+                    let line = line.replace("%2F", " ");
+                    let line = line.replace("%3A", ":");
+                    let line = line.replace("+", " ");
+
+                    let scope = ScopeLimits::from_str(&line)
+                        .map_err(|_| Error::msg("Could not parse scope"))?;
+                    Ok(scope)
+                }
+            })
+        )
+    }
+}
+
 
 
 //------------ IntoHttpHandler -----------------------------------------------
@@ -132,6 +237,18 @@ pub enum Error {
 
     #[display(fmt="{}", _0)]
     VrpsError(vrps::Error),
+
+    #[display(fmt="{}", _0)]
+    DelegationsError(delegations::Error),
+
+    #[display(fmt = "{}", _0)]
+    Other(String)
+}
+
+impl Error {
+    pub fn msg(msg: &str) -> Self {
+        Error::Other(msg.to_string())
+    }
 }
 
 impl From<announcements::Error> for Error {
@@ -140,4 +257,17 @@ impl From<announcements::Error> for Error {
 
 impl From<vrps::Error> for Error {
     fn from(e: vrps::Error) -> Self { Error::VrpsError(e) }
+}
+
+impl From<delegations::Error> for Error {
+    fn from(e: delegations::Error) -> Self { Error::DelegationsError(e) }
+}
+
+impl std::error::Error for Error {}
+
+impl actix_web::ResponseError for Error {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(format!("{}", self))
+    }
 }

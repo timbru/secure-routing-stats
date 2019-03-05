@@ -33,7 +33,7 @@ impl Announcement {
         Announcement { prefix, asn }
     }
 
-    pub fn asn(&self) -> &Asn { &self.asn }
+    pub fn asn(&self) -> Asn { self.asn }
     pub fn prefix(&self) -> &IpPrefix { &self.prefix }
 }
 
@@ -121,17 +121,18 @@ impl Announcements {
     }
 
     pub fn in_scope(&self, scope: &ScopeLimits) -> Vec<&Announcement> {
-        let mut anns = match scope.ips() {
-            None => self.all(),
-            Some(set) => {
-                set.ranges().iter().flat_map(|range|
-                    self.contained_by(range)
-                ).collect()
-            }
+        let mut anns = if scope.limits_ips() {
+            let ranges = scope.ips().ranges();
+            ranges.iter().flat_map(|range|
+                self.contained_by(range)
+            ).collect()
+        } else {
+            self.all()
         };
 
-        if let Some(set) = &scope.asns() {
-            anns.retain(|ann| set.contains(ann.asn()));
+        if scope.limits_asns() {
+            let asn_set = &scope.asns();
+            anns.retain(|ann| asn_set.contains(ann.asn()));
         }
 
         anns

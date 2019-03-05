@@ -36,14 +36,28 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <html>
 <head>
-    <title>Not found!</title>
+    <title>RPKI Stats</title>
 </head>
 
 
 <body>
-    <main>
-        <p>The dog ate my home work</p>
-    </main>
+<main>
+    <div class="align-left">
+        <p>Look at RPKI vs BGP Stats*</p>
+    </div>
+
+    <div class="align-center">
+        <a href="/api/world.json">Get country based stats (JSON)</a>
+    </div>
+
+    <div class="align-center">
+        Get a detailed (JSON) report for resources
+        <form action="/report" method="post">
+            IP or ASN scope<input type="text" name="scope"><input type="submit" value="Analyse This!" />
+        </form>
+    </div>
+
+</main>
 </body>
 
 </html>
