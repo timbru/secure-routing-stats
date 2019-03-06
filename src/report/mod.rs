@@ -8,6 +8,8 @@ use ip::Asn;
 use ip::IpRangeError;
 use ip::IpAddressError;
 use ip::AsnError;
+use ip::IpPrefix;
+use ip::IpPrefixError;
 
 pub mod resources;
 pub mod world;
@@ -34,7 +36,11 @@ impl FromStr for ScopeLimits {
                 if el.contains('-') {
                     let range = IpRange::from_str(el)?;
                     ips.add_ip_range(range);
-                } else {
+                } else if el.contains('/') {
+                    let prefix = IpPrefix::from_str(el)?;
+                    ips.add_ip_range(prefix.into());
+                }
+                else {
                     let address = IpAddress::from_str(el)?;
                     ips.add_ip_address(address);
                 }
@@ -84,6 +90,9 @@ pub enum Error {
     ParseError(String),
 
     #[display(fmt = "{}", _0)]
+    IpPrefixError(IpPrefixError),
+
+    #[display(fmt = "{}", _0)]
     IpRangeError(IpRangeError),
 
     #[display(fmt = "{}", _0)]
@@ -91,6 +100,10 @@ pub enum Error {
 
     #[display(fmt = "{}", _0)]
     AsnError(AsnError),
+}
+
+impl From<IpPrefixError> for Error {
+    fn from(e: IpPrefixError) -> Self { Error::IpPrefixError(e) }
 }
 
 impl From<IpRangeError> for Error {
@@ -115,7 +128,15 @@ mod tests {
     #[test]
     fn should_parse() {
         let set = ScopeLimits::from_str("").unwrap();
-        assert_eq!(ScopeLimits::new(IpResourceSet::empty(), AsnSet::empty()), set);
+        assert_eq!(ScopeLimits::empty(), set);
+
+        let set = ScopeLimits::from_str("10.0.0.0/8").unwrap();
+        assert_eq!(
+            ScopeLimits::new(
+                IpResourceSet::from_str("10.0.0.0/8").unwrap(),
+                AsnSet::empty()
+            ),
+            set);
     }
 
 }

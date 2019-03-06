@@ -436,6 +436,12 @@ impl Serialize for IpPrefix {
     }
 }
 
+impl Into<IpRange> for IpPrefix {
+    fn into(self) -> IpRange {
+        self.range
+    }
+}
+
 //------------ IpResourceSet -------------------------------------------------
 
 #[derive(Clone, Eq, PartialEq)]
