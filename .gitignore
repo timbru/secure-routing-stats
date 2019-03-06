@@ -3,3 +3,4 @@ Cargo.lock
 secure-routing-stats.iml
 /target
 **/*.rs.bk
+.DS_Store

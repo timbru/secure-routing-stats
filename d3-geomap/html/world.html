@@ -35,27 +35,250 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <!DOCTYPE html>
 
 <html>
+
 <head>
-    <meta charset="utf-8">
-    <script type="text/javascript" src="/d3-geomap/js/jquery-3.3.1.min.js.css"></script>
-    <link href="/d3-geomap/css/d3.geomap.css" rel="stylesheet">
-    <script src="/d3-geomap/vendor/d3.geomap.dependencies.min.js"></script>
-    <script src="/d3-geomap/js/d3.geomap.min.js"></script>
-
-    <script type="text/javascript">
-
-        $(document).ready(function() {
-            d3.geomap()
-                .geofile('/d3-geomap/topojson/world/countries.json')
-                .draw(d3.select('#map'));
-        });
-
-    </script>
+  <meta charset="utf-8">
+  <link href="/d3-geomap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/d3-geomap/css/d3.geomap.css" rel="stylesheet">
 </head>
 
 
-<body>
-    <div id="map"></div>
+<body class="p-4">
+
+  <div class="container-fluid">
+    <div id="vuefied" class="row">
+      <div class="col-8">
+        <form class="form-inline flex-row-reverse mr-3">
+          <select v-model="mapColumn" @change="updateMap" class="form-control">
+            <option value="coverage">Coverage</option>
+            <option value="accuracy">Accuracy</option>
+            <option value="seen">Seen</option>
+          </select>
+        </form>
+        <div id="map"></div>
+        <div class="mt-4 text-center text-muted">{{mapColumnDetails}}</div>
+      </div>
+      <div class="col">
+        <form class="form-inline">
+          <label class="my-1 mr-2" for="scope">IP or ASN scope</label>
+          <input type="text" class="form-control mr-2" id="scope" placeholder="0.0.0.0/8" v-model="scope">
+          <button type="button" class="btn btn-primary" @click="analyse" :disabled="scope==''">Analyse this!</button>
+        </form>
+
+        <span v-if="results">
+          <h5 class="mt-4 mb-3">Announcements</h5>
+          <table class="table table-striped table-hover" v-if="results.announcements">
+            <tbody>
+              <tr>
+                <th scope="row">Valid</th>
+                <td class="text-center" style="width: 20%">{{results.announcements.valid}}</td>
+              </tr>
+              <tr>
+                <th scope="row">Invalid ASN</th>
+                <td class="text-center">
+                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">{{results.announcements.invalid_asn}}</a>
+                  <span v-if="results.announcements.invalids.length == 0">{{results.announcements.invalid_asn}}</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Invalid Length</th>
+                <td class="text-center">
+                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">{{results.announcements.invalid_length}}</a>
+                  <span v-if="results.announcements.invalids.length == 0">{{results.announcements.invalid_length}}</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Not Found</th>
+                <td class="text-center">{{results.announcements.not_found}}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h5 class="mt-4 mb-3">Payloads</h5>
+          <table class="table table-striped table-hover" v-if="results.vrps">
+            <tbody>
+              <tr>
+                <th scope="row">Verified ROA Payloads</th>
+                <td class="text-center">{{ results.vrps.total }}</td>
+              </tr>
+              <tr>
+                <th scope="row">Unseen</th>
+                <td class="text-center">
+                  <a href="javascript:void(0)" v-if="results.vrps.unseen.length > 0" @click="showUnseen">{{results.vrps.unseen.length}}</a>
+                  <span v-if="results.vrps.unseen.length == 0">{{results.vrps.unseen.length}}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <span id="rpkiInvalid" class="d-none">
+            <table class="table table-striped table-hover table-borderless" v-if="results.announcements && results.announcements.invalids.length > 0">
+              <thead>
+                <tr>
+                  <th scope="col">ASN</th>
+                  <th scope="col">Prefix</th>
+                  <th scope="col">State</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="invalid of results.announcements.invalids">
+                  <th scope="row">{{invalid.announcement.asn}}</th>
+                  <td>{{invalid.announcement.prefix}}</td>
+                  <td>{{invalid.state}}</td>
+                </tr>
+              </tbody>
+            </table>
+          </span>
+          <span id="rpkiUnseen" class="d-none">
+            <table class="table table-striped table-hover  table-borderless" v-if="results.vrps && results.vrps.unseen.length > 0">
+              <thead>
+                <tr>
+                  <th scope="col">ASN</th>
+                  <th scope="col">Prefix</th>
+                  <th scope="col">Max Length</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="lost of results.vrps.unseen">
+                  <th scope="row">{{lost.asn}}</th>
+                  <td>{{lost.prefix}}</td>
+                  <td>{{lost.max_length}}</td>
+                </tr>
+              </tbody>
+            </table>
+          </span>
+
+          <a href="javascript:void(0)" @click="showRawResults">Show raw results</a> <br>
+        </span>
+
+
+      </div>
+
+      <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">{{ modalTitle }}</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body" v-html="modalContent">
+
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script src="/d3-geomap/js/vue.min.js"></script>
+  <script src="/d3-geomap/js/axios.min.js"></script>
+  <script src="/d3-geomap/js/d3.geomap.dependencies.min.js"></script>
+  <script src="/d3-geomap/js/d3.geomap.min.js"></script>
+  <script src="/d3-geomap/js/jquery-3.3.1.min.js"></script>
+  <script src="/d3-geomap/js/bootstrap.min.js"></script>
+  <script type="text/javascript">
+    var rpkiWorldCache = null;
+
+    var rpkiCreateMap = function(column) {
+      d3.select('#map').select('svg').remove();
+      var map = d3.geomap.choropleth()
+        .geofile('../js/countries_with_iso2.json')
+        .colors(colorbrewer.Greens[9])
+        .column(column)
+        .format(function(d) {
+          return d3.format(',.1f')(d) + '%';
+        })
+        .legend(true)
+        .unitId('iso2');
+
+      if (!rpkiWorldCache) {
+        d3.csv('/rpki-stats-api/world.csv', function(error, data) {
+          map.draw(d3.select('#map').datum(data));
+          rpkiWorldCache = data;
+        });
+      } else {
+        map.draw(d3.select('#map').datum(rpkiWorldCache));
+      }
+      return map;
+    }
+
+    var app = new Vue({
+      el: '#vuefied',
+      data: {
+        map: null,
+        mapColumn: 'coverage',
+        scope: '',
+        results: null,
+        modalTitle: 'Details',
+        modalContent: ''
+      },
+      computed: {
+        mapColumnDetails: function() {
+          var mapping = {
+            'coverage': 'This is the text for coverage',
+            'accuracy': 'This is the text for accuracy',
+            'seen': 'This is the text for seen'
+          }
+          return mapping[this.mapColumn];
+        }
+      },
+      created() {
+        var self = this;
+        this.map = rpkiCreateMap(self.mapColumn);
+        var drawTimeout = -1;
+        window.addEventListener('resize', function() {
+          window.clearTimeout(drawTimeout);
+          drawTimeout = window.setTimeout(function() {
+            self.map = rpkiCreateMap(self.mapColumn);
+          }, 200);
+        });
+        $('#detailsModal').modal('hide');
+        if (window.location.search.indexOf('?') === 0) {
+          this.scope = window.location.search.substr(1);
+          this.analyse();
+        }
+      },
+      methods: {
+        analyse: function() {
+          var self = this;
+          if (this.scope) {
+            axios.get('/rpki-stats-api/details?scope=' + encodeURIComponent(this.scope))
+              .then(function(response) {
+                self.results = response.data;
+              })
+              .catch(function(error) {
+                self.results = error;
+              });
+          }
+        },
+        updateMap: function() {
+          this.map.column(this.mapColumn).update();
+        },
+        showRawResults: function() {
+          this.modalTitle = this.scope + ' raw results';
+          this.modalContent = '<pre>' + JSON.stringify(this.results, null, 2) + '</pre>';
+          $('#detailsModal').modal('show');
+        },
+        showInvalid: function() {
+          this.modalTitle = this.scope + ' invalid ROAs';
+          this.modalContent = document.getElementById('rpkiInvalid').innerHTML;
+          $('#detailsModal').modal('show');
+        },
+        showUnseen: function() {
+          this.modalTitle = this.scope + ' unseen verified ROA payloads';
+          this.modalContent = document.getElementById('rpkiUnseen').innerHTML;
+          $('#detailsModal').modal('show');
+        }
+      }
+    })
+  </script>
 </body>
 
 </html>
