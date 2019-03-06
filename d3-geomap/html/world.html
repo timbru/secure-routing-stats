@@ -56,7 +56,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
           </select>
         </form>
         <div id="map"></div>
-        <div class="mt-4 text-center text-muted">{{mapColumnDetails}}</div>
+        <div class="mt-4 text-center text-muted">[[mapColumnDetails]]</div>
       </div>
       <div class="col">
         <form class="form-inline">
@@ -71,25 +71,25 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             <tbody>
               <tr>
                 <th scope="row">Valid</th>
-                <td class="text-center" style="width: 20%">{{results.announcements.valid}}</td>
+                <td class="text-center" style="width: 20%">[[results.announcements.valid]]</td>
               </tr>
               <tr>
                 <th scope="row">Invalid ASN</th>
                 <td class="text-center">
-                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">{{results.announcements.invalid_asn}}</a>
-                  <span v-if="results.announcements.invalids.length == 0">{{results.announcements.invalid_asn}}</span>
+                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">[[results.announcements.invalid_asn]]</a>
+                  <span v-if="results.announcements.invalids.length == 0">[[results.announcements.invalid_asn]]</span>
                 </td>
               </tr>
               <tr>
                 <th scope="row">Invalid Length</th>
                 <td class="text-center">
-                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">{{results.announcements.invalid_length}}</a>
-                  <span v-if="results.announcements.invalids.length == 0">{{results.announcements.invalid_length}}</span>
+                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">[[results.announcements.invalid_length]]</a>
+                  <span v-if="results.announcements.invalids.length == 0">[[results.announcements.invalid_length]]</span>
                 </td>
               </tr>
               <tr>
                 <th scope="row">Not Found</th>
-                <td class="text-center">{{results.announcements.not_found}}</td>
+                <td class="text-center">[[results.announcements.not_found]]</td>
               </tr>
             </tbody>
           </table>
@@ -99,13 +99,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             <tbody>
               <tr>
                 <th scope="row">Verified ROA Payloads</th>
-                <td class="text-center">{{ results.vrps.total }}</td>
+                <td class="text-center">[[ results.vrps.total ]]</td>
               </tr>
               <tr>
                 <th scope="row">Unseen</th>
                 <td class="text-center">
-                  <a href="javascript:void(0)" v-if="results.vrps.unseen.length > 0" @click="showUnseen">{{results.vrps.unseen.length}}</a>
-                  <span v-if="results.vrps.unseen.length == 0">{{results.vrps.unseen.length}}</span>
+                  <a href="javascript:void(0)" v-if="results.vrps.unseen.length > 0" @click="showUnseen">[[results.vrps.unseen.length]]</a>
+                  <span v-if="results.vrps.unseen.length == 0">[[results.vrps.unseen.length]]</span>
                 </td>
               </tr>
             </tbody>
@@ -122,9 +122,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
               </thead>
               <tbody>
                 <tr v-for="invalid of results.announcements.invalids">
-                  <th scope="row">{{invalid.announcement.asn}}</th>
-                  <td>{{invalid.announcement.prefix}}</td>
-                  <td>{{invalid.state}}</td>
+                  <th scope="row">[[invalid.announcement.asn]]</th>
+                  <td>[[invalid.announcement.prefix]]</td>
+                  <td>[[invalid.state]]</td>
                 </tr>
               </tbody>
             </table>
@@ -140,9 +140,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
               </thead>
               <tbody>
                 <tr v-for="lost of results.vrps.unseen">
-                  <th scope="row">{{lost.asn}}</th>
-                  <td>{{lost.prefix}}</td>
-                  <td>{{lost.max_length}}</td>
+                  <th scope="row">[[lost.asn]]</th>
+                  <td>[[lost.prefix]]</td>
+                  <td>[[lost.max_length]]</td>
                 </tr>
               </tbody>
             </table>
@@ -158,7 +158,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg" role="document">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">{{ modalTitle }}</h5>
+              <h5 class="modal-title">[[ modalTitle ]]</h5>
               <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
               </button>
@@ -211,6 +211,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     var app = new Vue({
       el: '#vuefied',
+      delimiters: ['[[',']]'],
       data: {
         map: null,
         mapColumn: 'coverage',
@@ -222,9 +223,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       computed: {
         mapColumnDetails: function() {
           var mapping = {
-            'coverage': 'This is the text for coverage',
-            'accuracy': 'This is the text for accuracy',
-            'seen': 'This is the text for seen'
+            'coverage': 'The fraction of announced IPv4 and IPv6 prefixes in BGP covered by RPKI ROAs.',
+            'accuracy': 'The fraction of covered BGP announcements which are RPKI valid.',
+            'seen': 'The fraction of all Verified ROA Payloads which are currently seen in BGP.'
           }
           return mapping[this.mapColumn];
         }
