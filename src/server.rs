@@ -20,10 +20,7 @@ use delegations::IpDelegations;
 use delegations;
 use serde::Serialize;
 use report::world::WorldStatsReporter;
-use actix_web::FromRequest;
 use report::ScopeLimits;
-use futures::Future;
-use actix_web::dev::MessageBody;
 use report::resources::ResourceReporter;
 use actix_web::fs;
 
@@ -90,8 +87,7 @@ impl StatsApp {
                 r.method(Method::GET).f(Self::home)
             })
             .resource("/rpki-stats-api/details", |r| {
-                r.method(Method::POST).with(Self::report);
-                r.method(Method::GET).f(Self::report_all);
+                r.method(Method::GET).f(Self::details);
             })
             .resource("/rpki-stats-api/world.json", |r| {
                 r.method(Method::GET).f(Self::world_json);
@@ -143,22 +139,21 @@ impl StatsApp {
         HttpResponse::Ok().body(HOME)
     }
 
-    #[allow(clippy::needless_pass_by_value)]
-    fn report(req: HttpRequest, limits: ScopeLimits) -> HttpResponse {
+    fn details(req: &HttpRequest) -> HttpResponse {
         let server: &Arc<StatsServer> = req.state();
-        let reporter = ResourceReporter::new(
-            &server.sources.announcements,
-            &server.sources.vrps
-        );
 
-        let stats = reporter.analyse(&limits);
+        let limits = match req.query().get("scope") {
+            None => ScopeLimits::empty(),
+            Some(scope_str) => {
+                match ScopeLimits::from_str(scope_str) {
+                    Ok(scope) => scope,
+                    Err(_) => {
+                        return Self::user_error("Can't parse scope")
+                    }
+                }
+            }
+        };
 
-        Self::render_json(&stats)
-    }
-
-    fn report_all(req: &HttpRequest) -> HttpResponse {
-        let limits = ScopeLimits::empty();
-        let server: &Arc<StatsServer> = req.state();
         let reporter = ResourceReporter::new(
             &server.sources.announcements,
             &server.sources.vrps
@@ -214,40 +209,13 @@ impl StatsApp {
             .body("I'm sorry Dave, I'm afraid I can't do that.")
     }
 
-
-}
-
-impl<S: 'static> FromRequest<S> for ScopeLimits {
-    type Config = ();
-    type Result = Box<Future<Item=Self, Error=actix_web::Error>>;
-
-    fn from_request(
-        req: &actix_web::HttpRequest<S>,
-        _c: &Self::Config
-    ) -> Self::Result {
-
-        use std::str;
-
-        Box::new(MessageBody::new(req)
-            .from_err()
-            .and_then(|bytes| {
-                unsafe {
-                    let s: &str = str::from_utf8_unchecked(&bytes);
-                    let line = s.replace("scope=", "");
-                    let line = line.replace("%2C", ",");
-                    let line = line.replace("%2F", " ");
-                    let line = line.replace("%3A", ":");
-                    let line = line.replace("+", " ");
-
-                    let scope = ScopeLimits::from_str(&line)
-                        .map_err(|_| Error::msg("Could not parse scope"))?;
-                    Ok(scope)
-                }
-            })
-        )
+    fn user_error(msg: &str) -> HttpResponse {
+        HttpResponse::build(StatusCode::BAD_REQUEST)
+            .body(msg.to_string())
     }
-}
 
+
+}
 
 
 //------------ IntoHttpHandler -----------------------------------------------
