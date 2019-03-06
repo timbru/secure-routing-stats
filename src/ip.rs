@@ -17,7 +17,7 @@ const IPV4_UNUSED: u128 = 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000;
 
 //------------ Asn ----------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Asn {
     val: u32
 }
@@ -56,10 +56,19 @@ impl fmt::Display for Asn {
     }
 }
 
+impl Serialize for Asn {
+    fn serialize<S>(
+        &self,
+        serializer: S
+    ) -> Result<S::Ok, S::Error> where S: Serializer {
+        self.to_string().serialize(serializer)
+    }
+}
+
 
 //------------ AsnRange ------------------------------------------------------
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AsnRange {
     min: Asn,
     max: Asn
@@ -98,10 +107,20 @@ impl fmt::Display for AsnRange {
     }
 }
 
+impl Serialize for AsnRange {
+    fn serialize<S>(
+        &self,
+        serializer: S
+    ) -> Result<S::Ok, S::Error> where S: Serializer {
+        self.to_string().serialize(serializer)
+    }
+}
+
+
 
 //------------ AsnSet --------------------------------------------------------
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AsnSet {
     ranges: Vec<AsnRange>
 }
@@ -167,6 +186,16 @@ impl fmt::Display for AsnSet {
         Ok(())
     }
 }
+
+impl Serialize for AsnSet {
+    fn serialize<S>(
+        &self,
+        serializer: S
+    ) -> Result<S::Ok, S::Error> where S: Serializer {
+        self.to_string().serialize(serializer)
+    }
+}
+
 
 
 //------------ IpAddressFamily -----------------------------------------------
