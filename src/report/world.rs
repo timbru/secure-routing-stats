@@ -222,7 +222,7 @@ impl CountryStats {
 
     pub fn to_csv(&self) -> String {
         let mut s = String::new();
-        writeln!(s, "iso2, coverage, accuracy, seen").unwrap();
+        writeln!(s, "iso2,coverage,accuracy,seen").unwrap();
 
         let countries = self.get_sorted_countries();
 
@@ -234,7 +234,7 @@ impl CountryStats {
             if coverage > 0. {
                 writeln!(
                     s,
-                    "{}, {}, {}, {}",
+                    "{},{},{},{}",
                     country.cc,
                     coverage,
                     accuracy,
