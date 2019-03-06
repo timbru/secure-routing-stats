@@ -89,17 +89,15 @@ impl StatsApp {
             .resource("/", |r| {
                 r.method(Method::GET).f(Self::home)
             })
-            .resource("/report", |r| {
-                r.method(Method::POST).with(Self::report)
+            .resource("/rpki-stats-api/details", |r| {
+                r.method(Method::POST).with(Self::report);
+                r.method(Method::GET).f(Self::report_all);
             })
-            .resource("/report_all", |r| {
-                r.method(Method::GET).f(Self::report_all)
+            .resource("/rpki-stats-api/world.json", |r| {
+                r.method(Method::GET).f(Self::world_json);
             })
-            .resource("/api/world.json", |r| {
-                r.method(Method::GET).f(Self::world_json)
-            })
-            .resource("/api/world.csv", |r| {
-                r.method(Method::GET).f(Self::world_csv)
+            .resource("/rpki-stats-api/world.csv", |r| {
+                r.method(Method::GET).f(Self::world_csv);
             })
             .handler(
                 "/d3-geomap",
