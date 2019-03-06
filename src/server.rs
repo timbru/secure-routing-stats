@@ -92,6 +92,9 @@ impl StatsApp {
             .resource("/report", |r| {
                 r.method(Method::POST).with(Self::report)
             })
+            .resource("/report_all", |r| {
+                r.method(Method::GET).f(Self::report_all)
+            })
             .resource("/api/world.json", |r| {
                 r.method(Method::GET).f(Self::world_json)
             })
@@ -144,6 +147,19 @@ impl StatsApp {
 
     #[allow(clippy::needless_pass_by_value)]
     fn report(req: HttpRequest, limits: ScopeLimits) -> HttpResponse {
+        let server: &Arc<StatsServer> = req.state();
+        let reporter = ResourceReporter::new(
+            &server.sources.announcements,
+            &server.sources.vrps
+        );
+
+        let stats = reporter.analyse(&limits);
+
+        Self::render_json(&stats)
+    }
+
+    fn report_all(req: &HttpRequest) -> HttpResponse {
+        let limits = ScopeLimits::empty();
         let server: &Arc<StatsServer> = req.state();
         let reporter = ResourceReporter::new(
             &server.sources.announcements,
