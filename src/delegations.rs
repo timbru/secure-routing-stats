@@ -1,6 +1,5 @@
 //! Parse delegated extended stats
 use std::str::FromStr;
-use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::fmt::Display;
@@ -135,13 +134,13 @@ pub struct IpDelegations {
 
 impl IpDelegations {
     pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
-        let file = File::open(path)?;
+        let file = File::open(path).map_err(|_| Error::read_error(path))?;
         let reader = BufReader::new(file);
 
         let mut builder = IpRangeTreeBuilder::empty();
 
         for lres in reader.lines() {
-            let line = lres?;
+            let line = lres.map_err(Error::parse_error)?;
 
             if line.contains("nro|") || line.contains("|asn|") {
                 continue
@@ -168,8 +167,8 @@ impl IpDelegations {
 
 #[derive(Debug, Display)]
 pub enum Error {
-    #[display(fmt = "{}", _0)]
-    IoError(io::Error),
+    #[display(fmt = "Cannot read file: {}", _0)]
+    CannotRead(String),
 
     #[display(fmt = "Missing column in delegated-extended")]
     MissingColumn,
@@ -179,13 +178,12 @@ pub enum Error {
 }
 
 impl Error {
+    fn read_error(path: &PathBuf) -> Self {
+        Error::CannotRead(path.to_string_lossy().to_string())
+    }
     fn parse_error(e: impl Display) -> Self {
         Error::ParseError(format!("{}", e))
     }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self { Error::IoError(e) }
 }
 
 impl From<IpRangeError> for Error {

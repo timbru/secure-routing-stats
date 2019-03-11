@@ -313,7 +313,6 @@ impl WorldStatsOpts {
             if let Some(format) = matches.value_of("format") {
                 match format {
                     "json" => WorldStatsFormat::Json,
-                    "html" => WorldStatsFormat::Html,
                     "text" => WorldStatsFormat::Text,
                     f => return Err(Error::WithMessage(
                         format!("Unsupported format: {}. Supported are: json|html|text", f)))
@@ -333,7 +332,6 @@ impl WorldStatsOpts {
 /// Output format. The HTML uses the template in ['templates/world.html'].
 pub enum WorldStatsFormat {
     Json,
-    Html,
     Text
 }
 
@@ -396,7 +394,6 @@ impl<'a> WorldStatsReporter<'a> {
 
         match options.format {
             WorldStatsFormat::Json => Self::json(&stats)?,
-            WorldStatsFormat::Html => Self::html(&stats)?,
             WorldStatsFormat::Text => Self::text(&stats)
         }
 
@@ -405,33 +402,6 @@ impl<'a> WorldStatsReporter<'a> {
 
     fn json(stats: &CountryStats) -> Result<(), Error> {
         println!("{}", serde_json::to_string(stats)?);
-        Ok(())
-    }
-
-    fn html(stats: &CountryStats) -> Result<(), Error> {
-        let template = include_str!["../../templates/worldmap.html"];
-
-        let html = template.replace(
-            "***COUNTRY_PREFIXES_ADOPTION***",
-            &stats.adoption_array()
-        );
-
-        let html = html.replace(
-            "***COUNTRY_PREFIXES_VALID***",
-            &stats.valid_array()
-        );
-
-        let html = html.replace(
-            "***COUNTRY_PREFIXES_QUALITY***",
-            &stats.quality_array()
-        );
-
-        let html = html.replace(
-            "***COUNTRY_VRPS_SEEN***",
-            &stats.vrps_f_seen_array()
-        );
-
-        println!("{}", html);
         Ok(())
     }
 

@@ -92,7 +92,7 @@ impl Options {
                 .arg(Arg::with_name("format")
                     .short("f")
                     .long("format")
-                    .value_name("json | html | text")
+                    .value_name("json | text")
                     .help("Specify output format, defaults to json")
                     .required(false))
             )

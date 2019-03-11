@@ -22,12 +22,8 @@ use serde::Serialize;
 use report::world::WorldStatsReporter;
 use report::ScopeLimits;
 use report::resources::ResourceReporter;
-use actix_web::fs;
 
-
-const NOT_FOUND: &[u8] = include_bytes!("../templates/not_found.html");
-const HOME: &[u8] = include_bytes!("../templates/home.html");
-
+const NOT_FOUND: &[u8] = include_bytes!("../ui/not_found.html");
 
 pub struct ServerOpts {
     ris4: PathBuf,
@@ -84,7 +80,13 @@ impl StatsApp {
     pub fn new(server: Arc<StatsServer>) -> Self {
         let app = App::with_state(server)
             .resource("/", |r| {
-                r.method(Method::GET).f(Self::home)
+                r.method(Method::GET).f(
+                    |_r| {
+                        HttpResponse::Found()
+                            .header("location", "/ui/world.html")
+                            .finish()
+                    }
+                )
             })
             .resource("/rpki-stats-api/details", |r| {
                 r.method(Method::GET).f(Self::details);
@@ -95,11 +97,6 @@ impl StatsApp {
             .resource("/rpki-stats-api/world.csv", |r| {
                 r.method(Method::GET).f(Self::world_csv);
             })
-            .handler(
-                "/d3-geomap",
-                fs::StaticFiles::new("./d3-geomap")
-                    .unwrap()
-                    .show_files_listing())
             .default_resource(|r| {
                 // 404 for GET request
                 r.method(Method::GET).f(Self::p404);
@@ -108,6 +105,8 @@ impl StatsApp {
                 r.route().filter(pred::Not(pred::Get())).f(
                     |_req| HttpResponse::MethodNotAllowed());
             });
+
+        let app = with_statics(app);
 
         StatsApp(app)
     }
@@ -133,10 +132,6 @@ impl StatsApp {
 
     fn p404(_req: &HttpRequest) -> HttpResponse {
         HttpResponse::build(StatusCode::NOT_FOUND).body(NOT_FOUND)
-    }
-
-    fn home(_req: &HttpRequest) -> HttpResponse {
-        HttpResponse::Ok().body(HOME)
     }
 
     fn details(req: &HttpRequest) -> HttpResponse {
@@ -233,6 +228,29 @@ impl server::IntoHttpHandler for StatsApp {
 
 pub type HttpRequest = actix_web::HttpRequest<Arc<StatsServer>>;
 
+
+//------------ Definition of Statics for UI content --------------------------
+
+static HTML: &[u8] = b"text/html";
+static CSS:  &[u8] = b"text/css";
+static JS:   &[u8] = b"application/javascript";
+static JSON: &[u8] = b"application/json";
+
+
+fn with_statics<S: 'static>(app: App<S>) -> App<S> {
+    statics!(app,
+        "world.html" => HTML,
+        "css/bootstrap.min.css" => CSS,
+        "css/d3.geomap.css" => CSS,
+        "js/axios.min.js" => JS,
+        "js/bootstrap.min.js" => JS,
+        "js/d3.geomap.dependencies.min.js" => JS,
+        "js/d3.geomap.min.js" => JS,
+        "js/jquery-3.3.1.min.js" => JS,
+        "js/vue.min.js" => JS,
+        "json/countries_with_iso2.json" => JSON,
+    )
+}
 
 
 //------------ Error --------------------------------------------------------

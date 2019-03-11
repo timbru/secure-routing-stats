@@ -38,8 +38,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <head>
   <meta charset="utf-8">
-  <link href="/d3-geomap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="/d3-geomap/css/d3.geomap.css" rel="stylesheet">
+  <link href="/ui/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/ui/css/d3.geomap.css" rel="stylesheet">
 </head>
 
 
@@ -177,19 +177,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-  <script src="/d3-geomap/js/vue.min.js"></script>
-  <script src="/d3-geomap/js/axios.min.js"></script>
-  <script src="/d3-geomap/js/d3.geomap.dependencies.min.js"></script>
-  <script src="/d3-geomap/js/d3.geomap.min.js"></script>
-  <script src="/d3-geomap/js/jquery-3.3.1.min.js"></script>
-  <script src="/d3-geomap/js/bootstrap.min.js"></script>
+  <script src="/ui/js/vue.min.js"></script>
+  <script src="/ui/js/axios.min.js"></script>
+  <script src="/ui/js/d3.geomap.dependencies.min.js"></script>
+  <script src="/ui/js/d3.geomap.min.js"></script>
+  <script src="/ui/js/jquery-3.3.1.min.js"></script>
+  <script src="/ui/js/bootstrap.min.js"></script>
   <script type="text/javascript">
     var rpkiWorldCache = null;
 
     var rpkiCreateMap = function(column) {
       d3.select('#map').select('svg').remove();
       var map = d3.geomap.choropleth()
-        .geofile('../js/countries_with_iso2.json')
+        .geofile('/ui/json/countries_with_iso2.json')
         .colors(colorbrewer.Greens[9])
         .column(column)
         .format(function(d) {

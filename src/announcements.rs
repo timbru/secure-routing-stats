@@ -2,7 +2,6 @@
 //!
 //! http://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz
 
-use std::io;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufRead;
@@ -72,10 +71,10 @@ impl Announcements {
         builder: &mut IpRangeTreeBuilder<Announcement>,
         path: &PathBuf
     ) -> Result<(), Error> {
-        let file = File::open(path)?;
+        let file = File::open(path).map_err(|_| Error::read_error(path))?;
         let reader = BufReader::new(file);
         for lres in reader.lines() {
-            let line = lres?;
+            let line = lres.map_err(Error::parse_error)?;
             if line.is_empty() || line.starts_with('%') {
                 continue
             }
@@ -150,8 +149,8 @@ impl Announcements {
 
 #[derive(Debug, Display)]
 pub enum Error {
-    #[display(fmt = "{}", _0)]
-    IoError(io::Error),
+    #[display(fmt = "Cannot read file: {}", _0)]
+    CannotRead(String),
 
     #[display(fmt = "Missing column in announcements input")]
     MissingColumn,
@@ -161,13 +160,12 @@ pub enum Error {
 }
 
 impl Error {
+    fn read_error(path: &PathBuf) -> Self {
+        Error::CannotRead(path.to_string_lossy().to_string())
+    }
     fn parse_error(e: impl Display) -> Self {
         Error::ParseError(format!("{}", e))
     }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self { Error::IoError(e) }
 }
 
 impl From<IpPrefixError> for Error {

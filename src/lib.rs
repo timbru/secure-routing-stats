@@ -8,6 +8,7 @@ extern crate intervaltree;
 extern crate serde;
 extern crate serde_json;
 
+#[macro_use] pub mod statics;
 pub mod announcements;
 pub mod delegations;
 pub mod ip;
