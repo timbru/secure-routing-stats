@@ -84,17 +84,7 @@ $ secure_routing_stats world \
       --delegations test/20190304/delegated-extended.txt 
 ```
 
-Alternatively this can produce an world map html file. Example:
-```
-$ secure_routing_stats world\
-      --ris4 test/20190304/riswhoisdump.IPv4 \
-      --ris6 test/20190304/riswhoisdump.IPv6 \
-      --vrps test/20190304/vrps.csv \
-      --delegations test/20190304/delegated-extended.txt \
-      --format html
-```
-
-Finally, you can also get a simple text output:
+Alternatively this can produce simple text output:
 ```
 $ secure_routing_stats world\
       --ris4 test/20190304/riswhoisdump.IPv4 \
@@ -144,9 +134,12 @@ $ secure_routing_stats resources \
 
 Finally, you have the option of running the stats as an HTTP daemon. The 
 application will read files at startup, and from there on you can use the 
-UI/API (both still unstable) to do queries.
+UI/API to look at a worldmap of country stats, and to do queries about
+specific IP prefixes (or ranges) and/or ASNs.
 
-Example:
+We have a public instance of this running [here](https://nlnetlabs.nl/projects/rpki/rpki-analytics/)
+
+You can run this locally:
 ```
 $ secure_routing_stats daemon \
       --ris4 test/20190304/riswhoisdump.IPv4 \
@@ -157,11 +150,11 @@ $ secure_routing_stats daemon \
 
 The server will bind to port 8080, or die trying.
 
-In future we expect to have a better UI, and better functionality like 
-re-reading the files regularly from configurable sources so that you can just
- leave things running. But for now, this is a start.
- 
- Look at the home page ```http://localhost:8080/``` for links to functionality. 
+## Future Work
 
-
+In future we hope to extend the functionality with a number of things, like:
+* Automatically re-read input data (configurable, with defaults)
+* See the effect of excpections or ROAs that you may want to create
+* Historical analysis - what was the state on date X?
+* Historical analysis - what is the history of announcements and validatity given an IP prefix or ASN
 
