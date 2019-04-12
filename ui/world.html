@@ -59,9 +59,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <div class="mt-4 text-center text-muted">[[mapColumnDetails]]</div>
       </div>
       <div class="col">
-        <form class="form-inline">
+        <form class="form-inline" v-on:submit.prevent="analyse">
           <label class="my-1 mr-2" for="scope">IP or ASN scope</label>
-          <input type="text" class="form-control mr-2" id="scope" placeholder="0.0.0.0/8" v-model="scope">
+          <input type="text" class="form-control mr-2" id="scope" placeholder="0.0.0.0/8" v-model="scope" v-on:keyup.enter="analyse">
           <button type="button" class="btn btn-primary" @click="analyse" :disabled="scope==''">Analyse this!</button>
         </form>
 
