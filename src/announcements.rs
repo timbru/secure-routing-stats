@@ -198,7 +198,14 @@ mod tests {
         };
 
         let matches = announcements.contained_by(test_ann.as_ref());
+        assert_eq!(1, matches.len());
 
-        assert_eq!(matches.len(), 1);
+        let test_v6_ann = Announcement {
+            asn: Asn::from_str("AS112").unwrap(),
+            prefix: IpPrefix::from_str("2001:4:112::/48").unwrap()
+        };
+
+        assert_eq!(1, announcements.contained_by(test_v6_ann.as_ref()).len())
+
     }
 }
