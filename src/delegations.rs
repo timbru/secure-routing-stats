@@ -14,6 +14,7 @@ use crate::ip::{
     IpRangeTree,
     IpRangeTreeBuilder
 };
+use ip::{IpPrefix, IpPrefixError};
 
 
 //------------ Registry -----------------------------------------------------
@@ -65,6 +66,7 @@ impl FromStr for DelegationState {
             "ietf"      => Ok(DelegationState::IETF),
             "available" => Ok(DelegationState::AVAILABLE),
             "assigned"  => Ok(DelegationState::ASSIGNED),
+            "allocated" => Ok(DelegationState::ASSIGNED),
             "reserved"  => Ok(DelegationState::RESERVED),
             s => Err(Error::parse_error(format!("Unknown state: {}", s)))
         }
@@ -89,33 +91,57 @@ impl IpDelegation {
     pub fn state(&self) -> &DelegationState { &self.state }
 }
 
-impl FromStr for IpDelegation {
-    type Err = Error;
+impl IpDelegation {
+    fn from_csv_line(s: &str) -> Result<Option<Self>, Error> {
+        if s.starts_with("prefix") {
+            return Ok(None)
+        }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut values = s.split('|');
+        let mut values = s.split(',');
 
-        let reg_str = values.next().ok_or(Error::MissingColumn)?;
-        let cc_str = values.next().ok_or(Error::MissingColumn)?;
-        let inr_type_str = values.next().ok_or(Error::MissingColumn)?;
-        let min_str = values.next().ok_or(Error::MissingColumn)?;
-        let amount_str = values.next().ok_or(Error::MissingColumn)?;
-        let _date_str = values.next().ok_or(Error::MissingColumn)?;
-        let state_str = values.next().ok_or(Error::MissingColumn)?;
+        let prefix = values.next().ok_or(Error::missing("prefix", s))?;
+        let rir = values.next().ok_or(Error::missing("rir", s))?;
+        let _date_str = values.next().ok_or(Error::missing("date", s))?;
+        let cc_str = values.next().ok_or(Error::missing("cc", s))?;
+        let state_str = values.next().ok_or(Error::missing("state", s))?;
 
-        if inr_type_str != "ipv4" && inr_type_str != "ipv6" {
-            Err(Error::parse_error("unsupported inr type"))
+        let reg = Registry::from_str(rir)?;
+        let cc = cc_str.to_string();
+        let range: IpRange = IpPrefix::from_str(prefix)?.into();
+        let state = DelegationState::from_str(state_str)?;
+
+        Ok(Some(IpDelegation { reg, cc, range, state }))
+    }
+
+    fn from_nro_line(s: &str) -> Result<Option<Self>, Error> {
+        if s.contains("nro|") || s.contains("|asn|") {
+            Ok(None)
         } else {
-            let reg = Registry::from_str(reg_str)?;
-            let cc = cc_str.to_string();
-            let min = IpAddress::from_str(min_str)?;
-            let number = u128::from_str(amount_str)?;
-            let range = IpRange::from_min_and_number(min, number)?;
-            let state = DelegationState::from_str(state_str)?;
+            let mut values = s.split('|');
 
-            Ok(IpDelegation {reg, cc, range, state })
+            let reg_str = values.next().ok_or(Error::missing("rir", s))?;
+            let cc_str = values.next().ok_or(Error::missing("cc", s))?;
+            let inr_type_str = values.next().ok_or(Error::missing("type", s))?;
+            let min_str = values.next().ok_or(Error::missing("min", s))?;
+            let amount_str = values.next().ok_or(Error::missing("amount", s))?;
+            let _date_str = values.next().ok_or(Error::missing("date", s))?;
+            let state_str = values.next().ok_or(Error::missing("state", s))?;
+
+            if inr_type_str != "ipv4" && inr_type_str != "ipv6" {
+                Err(Error::parse_error("unsupported inr type"))
+            } else {
+                let reg = Registry::from_str(reg_str)?;
+                let cc = cc_str.to_string();
+                let min = IpAddress::from_str(min_str)?;
+                let number = u128::from_str(amount_str)?;
+                let range = IpRange::from_min_and_number(min, number)?;
+                let state = DelegationState::from_str(state_str)?;
+
+                Ok(Some(IpDelegation {reg, cc, range, state }))
+            }
         }
     }
+
 }
 
 impl AsRef<IpRange> for IpDelegation {
@@ -141,13 +167,17 @@ impl IpDelegations {
 
         for lres in reader.lines() {
             let line = lres.map_err(Error::parse_error)?;
+            let path_str = path.to_string_lossy().to_string();
 
-            if line.contains("nro|") || line.contains("|asn|") {
-                continue
+            if path_str.ends_with(".csv") {
+                if let Some(del) = IpDelegation::from_csv_line(&line)? {
+                    builder.add(del);
+                }
+            } else {
+                if let Some(del) = IpDelegation::from_nro_line(&line)? {
+                    builder.add(del);
+                }
             }
-
-            let delegation = IpDelegation::from_str(&line)?;
-            builder.add(delegation);
         };
 
         Ok(IpDelegations { tree: builder.build()} )
@@ -170,8 +200,8 @@ pub enum Error {
     #[display(fmt = "Cannot read file: {}", _0)]
     CannotRead(String),
 
-    #[display(fmt = "Missing column in delegated-extended")]
-    MissingColumn,
+    #[display(fmt = "Missing column {} in line: {}", _0, _1)]
+    MissingColumn(String, String),
 
     #[display(fmt = "Error parsing delegates-extended: {}", _0)]
     ParseError(String),
@@ -183,6 +213,9 @@ impl Error {
     }
     fn parse_error(e: impl Display) -> Self {
         Error::ParseError(format!("{}", e))
+    }
+    fn missing(c: &str, l: &str) -> Self {
+        Error::MissingColumn(c.to_string(), l.to_string())
     }
 }
 
@@ -198,6 +231,10 @@ impl From<ParseIntError> for Error {
     fn from(e: ParseIntError) -> Self { Self::parse_error(e) }
 }
 
+impl From<IpPrefixError> for Error {
+    fn from(e: IpPrefixError) -> Self { Self::parse_error(e) }
+}
+
 //------------ Tests --------------------------------------------------------
 
 #[cfg(test)]
@@ -207,6 +244,12 @@ mod tests {
     #[test]
     fn should_read_from_file() {
         let path = PathBuf::from("test/20190304/delegated-extended.txt");
+        IpDelegations::from_file(&path).unwrap();
+    }
+
+    #[test]
+    fn read_csv() {
+        let path = PathBuf::from("test/nrostats-20190101-v4.csv");
         IpDelegations::from_file(&path).unwrap();
     }
 }

@@ -287,8 +287,7 @@ impl<'a> PartialOrd for CountryStatWithCode<'a> {
 
 /// Options for the WorldStatsReport
 pub struct WorldStatsOpts {
-    ris4: PathBuf,
-    ris6: PathBuf,
+    announcements: Vec<PathBuf>,
     vrps: PathBuf,
     dels: PathBuf,
     format: WorldStatsFormat
@@ -297,11 +296,10 @@ pub struct WorldStatsOpts {
 impl WorldStatsOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
 
-        let ris4_file = matches.value_of("ris4").unwrap();
-        let ris4 = PathBuf::from(ris4_file);
-
-        let ris6_file = matches.value_of("ris6").unwrap();
-        let ris6 = PathBuf::from(ris6_file);
+        let mut announcements = vec![];
+        for name in matches.values_of("announcements").unwrap().into_iter() {
+            announcements.push(PathBuf::from(name))
+        }
 
         let vrps_file = matches.value_of("vrps").unwrap();
         let vrps = PathBuf::from(vrps_file);
@@ -322,7 +320,7 @@ impl WorldStatsOpts {
             }
         };
 
-        Ok(WorldStatsOpts { ris4, ris6, vrps, dels, format })
+        Ok(WorldStatsOpts { announcements, vrps, dels, format })
     }
 }
 
@@ -381,7 +379,7 @@ impl<'a> WorldStatsReporter<'a> {
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
         let announcements = Announcements::from_ris(
-            &options.ris4, &options.ris6
+            &options.announcements
         ).unwrap();
 
         let vrps = Vrps::from_file(&options.vrps).unwrap();

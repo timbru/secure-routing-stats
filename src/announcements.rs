@@ -104,13 +104,13 @@ impl Announcements {
     }
 
     pub fn from_ris(
-        v4_path: &PathBuf,
-        v6_path: &PathBuf
+        paths: &Vec<PathBuf>,
     ) -> Result<Self, Error> {
         let mut builder = IpRangeTreeBuilder::empty();
 
-        Self::parse_ris_file(&mut builder, v4_path)?;
-        Self::parse_ris_file(&mut builder, v6_path)?;
+        for path in paths {
+            Self::parse_ris_file(&mut builder, path)?;
+        }
 
         Ok(Announcements { tree: builder.build() })
     }
@@ -190,7 +190,9 @@ mod tests {
     fn should_read_from_file() {
         let v4_path = PathBuf::from("test/20190304/riswhoisdump.IPv4");
         let v6_path = PathBuf::from("test/20190304/riswhoisdump.IPv6");
-        let announcements = Announcements::from_ris(&v4_path, &v6_path).unwrap();
+        let paths = vec![v4_path, v6_path];
+
+        let announcements = Announcements::from_ris(&paths).unwrap();
 
         let test_ann = Announcement {
             asn: Asn::from_str("AS13335").unwrap(),

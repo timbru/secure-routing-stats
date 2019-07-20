@@ -26,19 +26,17 @@ use report::resources::ResourceReporter;
 const NOT_FOUND: &[u8] = include_bytes!("../ui/not_found.html");
 
 pub struct ServerOpts {
-    ris4: PathBuf,
-    ris6: PathBuf,
+    announcements: Vec<PathBuf>,
     vrps: PathBuf,
     dels: PathBuf,
 }
 
 impl ServerOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
-        let ris4_file = matches.value_of("ris4").unwrap();
-        let ris4 = PathBuf::from(ris4_file);
-
-        let ris6_file = matches.value_of("ris6").unwrap();
-        let ris6 = PathBuf::from(ris6_file);
+        let mut announcements = vec![];
+        for name in matches.values_of("announcements").unwrap().into_iter() {
+            announcements.push(PathBuf::from(name))
+        }
 
         let vrps_file = matches.value_of("vrps").unwrap();
         let vrps = PathBuf::from(vrps_file);
@@ -46,7 +44,7 @@ impl ServerOpts {
         let dels_file = matches.value_of("delegations").unwrap();
         let dels = PathBuf::from(dels_file);
 
-        Ok(ServerOpts { ris4, ris6, vrps, dels })
+        Ok(ServerOpts { announcements, vrps, dels })
     }
 }
 
@@ -64,7 +62,7 @@ pub struct StatsServer {
 
 impl StatsServer {
     fn create(opts: &ServerOpts) -> Result<Self, Error> {
-        let announcements = Announcements::from_ris(&opts.ris4, &opts.ris6)?;
+        let announcements = Announcements::from_ris(&opts.announcements)?;
         let vrps = Vrps::from_file(&opts.vrps)?;
         let delegations = IpDelegations::from_file(&opts.dels)?;
 

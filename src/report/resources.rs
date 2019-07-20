@@ -20,8 +20,7 @@ use crate::vrps::ValidatedRoaPayload;
 //------------ ResourceReportOpts --------------------------------------------
 
 pub struct ResourceReportOpts {
-    ris4: PathBuf,
-    ris6: PathBuf,
+    announcements: Vec<PathBuf>,
     vrps: PathBuf,
     scope: ScopeLimits,
     format: ReportFormat
@@ -33,11 +32,10 @@ impl ResourceReportOpts {
     }
 
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
-        let ris4_file = matches.value_of("ris4").unwrap();
-        let ris4 = PathBuf::from(ris4_file);
-
-        let ris6_file = matches.value_of("ris6").unwrap();
-        let ris6 = PathBuf::from(ris6_file);
+        let mut announcements = vec![];
+        for name in matches.values_of("announcements").unwrap().into_iter() {
+            announcements.push(PathBuf::from(name))
+        }
 
         let vrps_file = matches.value_of("vrps").unwrap();
         let vrps = PathBuf::from(vrps_file);
@@ -73,7 +71,7 @@ impl ResourceReportOpts {
             }
         };
 
-        Ok(ResourceReportOpts { ris4, ris6, vrps, scope, format })
+        Ok(ResourceReportOpts { announcements, vrps, scope, format })
     }
 }
 
@@ -124,7 +122,7 @@ impl<'a> ResourceReporter<'a> {
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
 
         let announcements = Announcements::from_ris(
-            &options.ris4, &options.ris6
+            &options.announcements
         )?;
         let vrps = Vrps::from_file(&options.vrps)?;
 

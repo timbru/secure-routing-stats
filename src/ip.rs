@@ -608,7 +608,7 @@ impl<V: AsRef<IpRange>> IpRangeTree<V> {
 
     pub fn matching_or_less_specific(&self, range: &IpRange) -> Vec<&V> {
         let mut res = vec![];
-        for mut el in self.tree.query(range.to_range()) {
+        for el in self.tree.query(range.to_range()) {
             if range.is_contained_by(&el.range) {
                 for matching_range in &el.value {
                     res.push(matching_range)
@@ -620,7 +620,7 @@ impl<V: AsRef<IpRange>> IpRangeTree<V> {
 
     pub fn matching_or_more_specific(&self, range: &IpRange) -> Vec<&V> {
         let mut res = vec![];
-        for mut el in self.tree.query(range.to_range()) {
+        for el in self.tree.query(range.to_range()) {
             if range.contains(&el.range) {
                 for matching_range in &el.value {
                     res.push(matching_range)

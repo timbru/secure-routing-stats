@@ -78,8 +78,7 @@ disregarded.
 Default output format is json. Example:
 ```
 $ secure_routing_stats world \
-      --ris4 test/20190304/riswhoisdump.IPv4 \
-      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
       --delegations test/20190304/delegated-extended.txt 
 ```
@@ -87,8 +86,7 @@ $ secure_routing_stats world \
 Alternatively this can produce simple text output:
 ```
 $ secure_routing_stats world\
-      --ris4 test/20190304/riswhoisdump.IPv4 \
-      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
       --delegations test/20190304/delegated-extended.txt \
       --format text
@@ -103,8 +101,7 @@ visibility of Validated ROA Payloads in BGP.
 This defaults to all resources when run like this:
 ```
 $ secure_routing_stats resources \
-      --ris4 test/20190304/riswhoisdump.IPv4 \
-      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --announcements  test/20190304/riswhoisdump.IPv4 \
       --vrps test/20190304/vrps.csv \
 ```
 
@@ -115,8 +112,7 @@ can also have text output:
 Examples:
 ```
 $ secure_routing_stats resources \
-      --ris4 test/20190304/riswhoisdump.IPv4 \
-      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
       --ips "185.49.140.0/22, 2a04:b900::/29" \
       --format text
@@ -124,8 +120,7 @@ $ secure_routing_stats resources \
 
 ```
 $ secure_routing_stats resources \
-      --ris4 test/20190304/riswhoisdump.IPv4 \
-      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
       --asns "AS199664, AS199665-AS199666"
 ```
@@ -142,8 +137,7 @@ We have a public instance of this running [here](https://nlnetlabs.nl/projects/r
 You can run this locally:
 ```
 $ secure_routing_stats daemon \
-      --ris4 test/20190304/riswhoisdump.IPv4 \
-      --ris6 test/20190304/riswhoisdump.IPv6 \
+      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
       --vrps test/20190304/vrps.csv \
       --delegations test/20190304/delegated-extended.txt 
 ```
