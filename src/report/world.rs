@@ -57,6 +57,10 @@ impl CountryStat {
         (self.covered() * 10000 / self.total()) as f32 / 100.
     }
 
+    pub fn has_adoption(&self) -> bool {
+        self.routes_valid + self.routes_inv_a + self.routes_inv_l > 0
+    }
+
     pub fn f_valid(&self) -> f32 {
         (self.routes_valid * 10000 / self.total()) as f32 / 100.
     }
@@ -231,7 +235,7 @@ impl CountryStats {
             let accuracy = country.stat.f_quality().unwrap_or(0.);
             let seen = country.stat.f_seen().unwrap_or(0.);
 
-            if coverage > 0. {
+            if country.stat.has_adoption() {
                 writeln!(
                     s,
                     "{},{},{},{}",
