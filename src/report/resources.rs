@@ -1,7 +1,3 @@
-use std::fmt;
-use std::path::PathBuf;
-use std::str::FromStr;
-use clap::ArgMatches;
 use crate::announcements;
 use crate::announcements::Announcements;
 use crate::ip::AsnError;
@@ -13,9 +9,12 @@ use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
 use crate::vrps;
-use crate::vrps::Vrps;
 use crate::vrps::ValidatedRoaPayload;
-
+use crate::vrps::Vrps;
+use clap::ArgMatches;
+use std::fmt;
+use std::path::PathBuf;
+use std::str::FromStr;
 
 //------------ ResourceReportOpts --------------------------------------------
 
@@ -23,7 +22,7 @@ pub struct ResourceReportOpts {
     announcements: Vec<PathBuf>,
     vrps: PathBuf,
     scope: ScopeLimits,
-    format: ReportFormat
+    format: ReportFormat,
 }
 
 impl ResourceReportOpts {
@@ -63,38 +62,44 @@ impl ResourceReportOpts {
                 match format {
                     "json" => ReportFormat::Json,
                     "text" => ReportFormat::Text,
-                    f => return Err(Error::WithMessage(
-                        format!("Unsupported format: {}. Supported are: json|text", f)))
+                    f => {
+                        return Err(Error::WithMessage(format!(
+                            "Unsupported format: {}. Supported are: json|text",
+                            f
+                        )))
+                    }
                 }
             } else {
                 ReportFormat::Json
             }
         };
 
-        Ok(ResourceReportOpts { announcements, vrps, scope, format })
+        Ok(ResourceReportOpts {
+            announcements,
+            vrps,
+            scope,
+            format,
+        })
     }
 }
 
 pub enum ReportFormat {
     Json,
-    Text
+    Text,
 }
-
 
 //------------ ResourceReporter ---------------------------------------------
 
 pub struct ResourceReporter<'a> {
     announcements: &'a Announcements,
-    vrps: &'a Vrps
+    vrps: &'a Vrps,
 }
 
 impl<'a> ResourceReporter<'a> {
-    pub fn new(
-        announcements: &'a Announcements,
-        vrps: &'a Vrps
-    ) -> Self {
+    pub fn new(announcements: &'a Announcements, vrps: &'a Vrps) -> Self {
         ResourceReporter {
-            announcements, vrps
+            announcements,
+            vrps,
         }
     }
 
@@ -115,15 +120,12 @@ impl<'a> ResourceReporter<'a> {
 
         ResourceReportResult {
             announcements: anns_res,
-            vrps: vrps_res
+            vrps: vrps_res,
         }
     }
 
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
-
-        let announcements = Announcements::from_ris(
-            &options.announcements
-        )?;
+        let announcements = Announcements::from_ris(&options.announcements)?;
         let vrps = Vrps::from_file(&options.vrps)?;
 
         let reporter = ResourceReporter::new(&announcements, &vrps);
@@ -132,20 +134,19 @@ impl<'a> ResourceReporter<'a> {
 
         match options.format {
             ReportFormat::Json => println!("{}", serde_json::to_string(&res)?),
-            ReportFormat::Text => print!("{}", res)
+            ReportFormat::Text => print!("{}", res),
         }
 
         Ok(())
     }
 }
 
-
 //------------ ResourceReportResult ------------------------------------------
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ResourceReportResult {
     announcements: AnnouncementsResult,
-    vrps: VisibilityResult
+    vrps: VisibilityResult,
 }
 
 impl fmt::Display for ResourceReportResult {
@@ -156,48 +157,30 @@ impl fmt::Display for ResourceReportResult {
     }
 }
 
-
-
 //------------ AnnouncementsResult -------------------------------------------
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 struct AnnouncementsResult {
     valid: usize,
     invalid_asn: usize,
     invalid_length: usize,
     not_found: usize,
-    invalids: Vec<ValidatedAnnouncement>
-}
-
-impl Default for AnnouncementsResult {
-    fn default() -> Self {
-        AnnouncementsResult {
-            valid: 0,
-            invalid_asn: 0,
-            invalid_length: 0,
-            not_found: 0,
-            invalids: vec![]
-        }
-    }
+    invalids: Vec<ValidatedAnnouncement>,
 }
 
 impl AnnouncementsResult {
     pub fn add(&mut self, ann: ValidatedAnnouncement) {
         match ann.state() {
-            ValidationState::Valid => {
-                self.valid += 1
-            },
+            ValidationState::Valid => self.valid += 1,
             ValidationState::InvalidLength => {
                 self.invalid_length += 1;
                 self.invalids.push(ann);
-            },
-            ValidationState::InvalidAsn    => {
+            }
+            ValidationState::InvalidAsn => {
                 self.invalid_asn += 1;
                 self.invalids.push(ann);
-            },
-            ValidationState::NotFound => {
-                self.not_found += 1
-            },
+            }
+            ValidationState::NotFound => self.not_found += 1,
         }
     }
 
@@ -215,7 +198,7 @@ impl fmt::Display for AnnouncementsResult {
         writeln!(f, "    invalid asn:    {}", self.invalid_asn)?;
         writeln!(f, "    not found:      {}", self.not_found)?;
         writeln!(f, "    total:          {}", self.total())?;
-        if ! self.invalids.is_empty() {
+        if !self.invalids.is_empty() {
             writeln!(f)?;
             writeln!(f, "  Invalids:")?;
             for ann in &self.invalids {
@@ -226,20 +209,12 @@ impl fmt::Display for AnnouncementsResult {
     }
 }
 
-
-
 //------------ VisibilityResult ---------------------------------------------
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct VisibilityResult {
     total: usize,
-    unseen: Vec<ValidatedRoaPayload>
-}
-
-impl Default for VisibilityResult {
-    fn default() -> Self {
-        VisibilityResult { total: 0, unseen: vec![] }
-    }
+    unseen: Vec<ValidatedRoaPayload>,
 }
 
 impl VisibilityResult {
@@ -269,8 +244,6 @@ impl fmt::Display for VisibilityResult {
     }
 }
 
-
-
 //------------ Error --------------------------------------------------------
 
 #[derive(Debug, Display)]
@@ -278,19 +251,19 @@ pub enum Error {
     #[display(fmt = "{}", _0)]
     WithMessage(String),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     IpResourceSet(IpRespourceSetError),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     AsnError(AsnError),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     AnnouncementsError(announcements::Error),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     VrpsError(vrps::Error),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     JsonError(serde_json::Error),
 }
 
@@ -301,21 +274,31 @@ impl Error {
 }
 
 impl From<IpRespourceSetError> for Error {
-    fn from(e: IpRespourceSetError) -> Self { Error::IpResourceSet(e) }
+    fn from(e: IpRespourceSetError) -> Self {
+        Error::IpResourceSet(e)
+    }
 }
 
 impl From<AsnError> for Error {
-    fn from(e: AsnError) -> Self { Error::AsnError(e) }
+    fn from(e: AsnError) -> Self {
+        Error::AsnError(e)
+    }
 }
 
 impl From<announcements::Error> for Error {
-    fn from(e: announcements::Error) -> Self { Error::AnnouncementsError(e) }
+    fn from(e: announcements::Error) -> Self {
+        Error::AnnouncementsError(e)
+    }
 }
 
 impl From<vrps::Error> for Error {
-    fn from(e: vrps::Error) -> Self { Error::VrpsError(e) }
+    fn from(e: vrps::Error) -> Self {
+        Error::VrpsError(e)
+    }
 }
 
 impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self { Error::JsonError(e) }
+    fn from(e: serde_json::Error) -> Self {
+        Error::JsonError(e)
+    }
 }

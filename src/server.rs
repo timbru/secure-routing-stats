@@ -2,26 +2,26 @@
 
 use crate::announcements::Announcements;
 use crate::vrps::Vrps;
-use actix_web::App;
-use std::path::PathBuf;
-use announcements;
-use vrps;
 use actix_web::http::Method;
 use actix_web::http::StatusCode;
 use actix_web::pred;
-use actix_web::HttpResponse;
-use clap::ArgMatches;
-use std::sync::Arc;
 use actix_web::server;
-use std::net::SocketAddr;
-use std::net::IpAddr;
-use std::str::FromStr;
-use delegations::IpDelegations;
+use actix_web::App;
+use actix_web::HttpResponse;
+use announcements;
+use clap::ArgMatches;
 use delegations;
-use serde::Serialize;
+use delegations::IpDelegations;
+use report::resources::ResourceReporter;
 use report::world::WorldStatsReporter;
 use report::ScopeLimits;
-use report::resources::ResourceReporter;
+use serde::Serialize;
+use std::net::IpAddr;
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
+use vrps;
 
 const NOT_FOUND: &[u8] = include_bytes!("../ui/not_found.html");
 
@@ -44,7 +44,11 @@ impl ServerOpts {
         let dels_file = matches.value_of("delegations").unwrap();
         let dels = PathBuf::from(dels_file);
 
-        Ok(ServerOpts { announcements, vrps, dels })
+        Ok(ServerOpts {
+            announcements,
+            vrps,
+            dels,
+        })
     }
 }
 
@@ -52,12 +56,12 @@ impl ServerOpts {
 pub struct Sources {
     announcements: Announcements,
     vrps: Vrps,
-    delegations: IpDelegations
+    delegations: IpDelegations,
 }
 
 #[derive(Debug)]
 pub struct StatsServer {
-    sources: Sources
+    sources: Sources,
 }
 
 impl StatsServer {
@@ -66,7 +70,11 @@ impl StatsServer {
         let vrps = Vrps::from_file(&opts.vrps)?;
         let delegations = IpDelegations::from_file(&opts.dels)?;
 
-        let sources = Sources { announcements, vrps, delegations };
+        let sources = Sources {
+            announcements,
+            vrps,
+            delegations,
+        };
 
         Ok(StatsServer { sources })
     }
@@ -78,13 +86,11 @@ impl StatsApp {
     pub fn new(server: Arc<StatsServer>) -> Self {
         let app = App::with_state(server)
             .resource("/", |r| {
-                r.method(Method::GET).f(
-                    |_r| {
-                        HttpResponse::Found()
-                            .header("location", "/ui/world.html")
-                            .finish()
-                    }
-                )
+                r.method(Method::GET).f(|_r| {
+                    HttpResponse::Found()
+                        .header("location", "/ui/world.html")
+                        .finish()
+                })
             })
             .resource("/rpki-stats-api/details", |r| {
                 r.method(Method::GET).f(Self::details);
@@ -100,8 +106,9 @@ impl StatsApp {
                 r.method(Method::GET).f(Self::p404);
 
                 // all requests that are not `GET`
-                r.route().filter(pred::Not(pred::Get())).f(
-                    |_req| HttpResponse::MethodNotAllowed());
+                r.route()
+                    .filter(pred::Not(pred::Get()))
+                    .f(|_req| HttpResponse::MethodNotAllowed());
             });
 
         let app = with_statics(app);
@@ -110,17 +117,14 @@ impl StatsApp {
     }
 
     pub fn run(opts: &ServerOpts) -> Result<(), Error> {
-
-        let stats_server = Arc::new(StatsServer::create(&opts)?);
+        let stats_server = Arc::new(StatsServer::create(opts)?);
 
         let server = server::new(move || Self::new(stats_server.clone()));
 
-        let address = SocketAddr::new(
-            IpAddr::from_str("127.0.0.1").unwrap(),
-            8080
-        );
+        let address = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 8080);
 
-        server.bind(address)
+        server
+            .bind(address)
             .unwrap_or_else(|_| panic!("Cannot bind to: {}", address))
             .shutdown_timeout(0)
             .run();
@@ -137,20 +141,13 @@ impl StatsApp {
 
         let limits = match req.query().get("scope") {
             None => ScopeLimits::empty(),
-            Some(scope_str) => {
-                match ScopeLimits::from_str(scope_str) {
-                    Ok(scope) => scope,
-                    Err(_) => {
-                        return Self::user_error("Can't parse scope")
-                    }
-                }
-            }
+            Some(scope_str) => match ScopeLimits::from_str(scope_str) {
+                Ok(scope) => scope,
+                Err(_) => return Self::user_error("Can't parse scope"),
+            },
         };
 
-        let reporter = ResourceReporter::new(
-            &server.sources.announcements,
-            &server.sources.vrps
-        );
+        let reporter = ResourceReporter::new(&server.sources.announcements, &server.sources.vrps);
 
         let stats = reporter.analyse(&limits);
 
@@ -181,19 +178,15 @@ impl StatsApp {
         let stats = reporter.analyse();
         let csv = stats.to_csv();
 
-        HttpResponse::Ok()
-            .content_type("text/csv")
-            .body(csv)
+        HttpResponse::Ok().content_type("text/csv").body(csv)
     }
 
     fn render_json<O: Serialize>(obj: &O) -> HttpResponse {
         match serde_json::to_string(obj) {
-            Ok(json) => {
-                HttpResponse::Ok()
-                    .content_type("application/json")
-                    .body(json)
-            },
-            Err(_) => Self::server_error()
+            Ok(json) => HttpResponse::Ok()
+                .content_type("application/json")
+                .body(json),
+            Err(_) => Self::server_error(),
         }
     }
 
@@ -203,13 +196,9 @@ impl StatsApp {
     }
 
     fn user_error(msg: &str) -> HttpResponse {
-        HttpResponse::build(StatusCode::BAD_REQUEST)
-            .body(msg.to_string())
+        HttpResponse::build(StatusCode::BAD_REQUEST).body(msg.to_string())
     }
-
-
 }
-
 
 //------------ IntoHttpHandler -----------------------------------------------
 
@@ -221,19 +210,16 @@ impl server::IntoHttpHandler for StatsApp {
     }
 }
 
-
 //------------ HttpRequest ---------------------------------------------------
 
 pub type HttpRequest = actix_web::HttpRequest<Arc<StatsServer>>;
 
-
 //------------ Definition of Statics for UI content --------------------------
 
 static HTML: &[u8] = b"text/html";
-static CSS:  &[u8] = b"text/css";
-static JS:   &[u8] = b"application/javascript";
+static CSS: &[u8] = b"text/css";
+static JS: &[u8] = b"application/javascript";
 static JSON: &[u8] = b"application/json";
-
 
 fn with_statics<S: 'static>(app: App<S>) -> App<S> {
     statics!(app,
@@ -250,22 +236,21 @@ fn with_statics<S: 'static>(app: App<S>) -> App<S> {
     )
 }
 
-
 //------------ Error --------------------------------------------------------
 
 #[derive(Debug, Display)]
 pub enum Error {
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     AnnouncementsError(announcements::Error),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     VrpsError(vrps::Error),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     DelegationsError(delegations::Error),
 
     #[display(fmt = "{}", _0)]
-    Other(String)
+    Other(String),
 }
 
 impl Error {
@@ -275,22 +260,27 @@ impl Error {
 }
 
 impl From<announcements::Error> for Error {
-    fn from(e: announcements::Error) -> Self { Error::AnnouncementsError(e) }
+    fn from(e: announcements::Error) -> Self {
+        Error::AnnouncementsError(e)
+    }
 }
 
 impl From<vrps::Error> for Error {
-    fn from(e: vrps::Error) -> Self { Error::VrpsError(e) }
+    fn from(e: vrps::Error) -> Self {
+        Error::VrpsError(e)
+    }
 }
 
 impl From<delegations::Error> for Error {
-    fn from(e: delegations::Error) -> Self { Error::DelegationsError(e) }
+    fn from(e: delegations::Error) -> Self {
+        Error::DelegationsError(e)
+    }
 }
 
 impl std::error::Error for Error {}
 
 impl actix_web::ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(format!("{}", self))
+        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR).body(format!("{}", self))
     }
 }

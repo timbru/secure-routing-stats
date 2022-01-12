@@ -1,21 +1,20 @@
 //! Parse ROAs.csv
-use std::fmt;
-use std::fmt::Display;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::BufRead;
-use std::num::ParseIntError;
-use std::path::PathBuf;
-use std::str::FromStr;
 use crate::ip::Asn;
 use crate::ip::AsnError;
-use crate::ip::IpPrefixError;
 use crate::ip::IpPrefix;
+use crate::ip::IpPrefixError;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
 use crate::report::ScopeLimits;
-
+use std::fmt;
+use std::fmt::Display;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::num::ParseIntError;
+use std::path::Path;
+use std::str::FromStr;
 
 //------------ ValidatedRoaPrefix --------------------------------------------
 
@@ -23,13 +22,19 @@ use crate::report::ScopeLimits;
 pub struct ValidatedRoaPayload {
     asn: Asn,
     prefix: IpPrefix,
-    max_length: u8
+    max_length: u8,
 }
 
 impl ValidatedRoaPayload {
-    pub fn asn(&self) -> Asn { self.asn }
-    pub fn prefix(&self) -> &IpPrefix { &self.prefix }
-    pub fn max_length(&self) -> u8 { self.max_length }
+    pub fn asn(&self) -> Asn {
+        self.asn
+    }
+    pub fn prefix(&self) -> &IpPrefix {
+        &self.prefix
+    }
+    pub fn max_length(&self) -> u8 {
+        self.max_length
+    }
 }
 
 impl ValidatedRoaPayload {
@@ -37,7 +42,6 @@ impl ValidatedRoaPayload {
         self.prefix.as_ref().contains(&range.to_range())
     }
 }
-
 
 impl AsRef<IpRange> for ValidatedRoaPayload {
     fn as_ref(&self) -> &IpRange {
@@ -62,7 +66,11 @@ impl FromStr for ValidatedRoaPayload {
         let length_str = values.next().ok_or(Error::MissingColumn)?;
         let max_length = u8::from_str(length_str)?;
 
-        Ok(ValidatedRoaPayload { asn, prefix, max_length })
+        Ok(ValidatedRoaPayload {
+            asn,
+            prefix,
+            max_length,
+        })
     }
 }
 
@@ -71,23 +79,20 @@ impl fmt::Display for ValidatedRoaPayload {
         write!(
             f,
             "AS: {}, Prefix: {}, Max Length: {}",
-            self.asn,
-            self.prefix,
-            self.max_length
+            self.asn, self.prefix, self.max_length
         )
     }
 }
-
 
 //------------ Vrps ----------------------------------------------------------
 
 #[derive(Debug)]
 pub struct Vrps {
-    tree: IpRangeTree<ValidatedRoaPayload>
+    tree: IpRangeTree<ValidatedRoaPayload>,
 }
 
 impl Vrps {
-    pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
+    pub fn from_file(path: &Path) -> Result<Self, Error> {
         let file = File::open(path).map_err(|_| Error::read_error(path))?;
         let reader = BufReader::new(file);
 
@@ -98,21 +103,24 @@ impl Vrps {
             let line = line.replace("\"", "");
             let line = line.replace(" ", "");
             if line.starts_with("ASN") {
-                continue
+                continue;
             }
             let vrp = ValidatedRoaPayload::from_str(&line)?;
             builder.add(vrp);
-        };
+        }
 
-        Ok(Vrps { tree: builder.build() })
+        Ok(Vrps {
+            tree: builder.build(),
+        })
     }
 
     pub fn in_scope(&self, scope: &ScopeLimits) -> Vec<&ValidatedRoaPayload> {
         let mut vrps = if scope.limits_ips() {
             let set = scope.ips();
-            set.ranges().iter().flat_map(|range|
-                self.contained_by(range)
-            ).collect()
+            set.ranges()
+                .iter()
+                .flat_map(|range| self.contained_by(range))
+                .collect()
         } else {
             self.all()
         };
@@ -125,11 +133,9 @@ impl Vrps {
         vrps
     }
 
-
-    pub fn all(&self) -> Vec<&ValidatedRoaPayload>{
+    pub fn all(&self) -> Vec<&ValidatedRoaPayload> {
         self.tree.all()
     }
-
 
     pub fn containing(&self, range: &IpRange) -> Vec<&ValidatedRoaPayload> {
         self.tree.matching_or_less_specific(range)
@@ -138,9 +144,7 @@ impl Vrps {
     pub fn contained_by(&self, range: &IpRange) -> Vec<&ValidatedRoaPayload> {
         self.tree.matching_or_more_specific(range)
     }
-
 }
-
 
 //------------ Error --------------------------------------------------------
 
@@ -157,7 +161,7 @@ pub enum Error {
 }
 
 impl Error {
-    fn read_error(path: &PathBuf) -> Self {
+    fn read_error(path: &Path) -> Self {
         Error::CannotRead(path.to_string_lossy().to_string())
     }
     fn parse_error(e: impl Display) -> Self {
@@ -166,15 +170,21 @@ impl Error {
 }
 
 impl From<IpPrefixError> for Error {
-    fn from(e: IpPrefixError) -> Self { Error::parse_error(e) }
+    fn from(e: IpPrefixError) -> Self {
+        Error::parse_error(e)
+    }
 }
 
 impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Self { Error::parse_error(e) }
+    fn from(e: ParseIntError) -> Self {
+        Error::parse_error(e)
+    }
 }
 
 impl From<AsnError> for Error {
-    fn from(e: AsnError) -> Self { Error::parse_error(e) }
+    fn from(e: AsnError) -> Self {
+        Error::parse_error(e)
+    }
 }
 
 //------------ Tests --------------------------------------------------------
@@ -182,6 +192,7 @@ impl From<AsnError> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn should_read_from_file() {
@@ -189,11 +200,3 @@ mod tests {
         Vrps::from_file(&path).unwrap();
     }
 }
-
-
-
-
-
-
-
-

@@ -1,21 +1,15 @@
 //! Parse delegated extended stats
-use std::str::FromStr;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::fmt::Display;
-use std::fs::File;
-use std::num::ParseIntError;
-use std::path::PathBuf;
 use crate::ip::{
-    IpAddress,
-    IpAddressError,
-    IpRange,
-    IpRangeError,
-    IpRangeTree,
-    IpRangeTreeBuilder
+    IpAddress, IpAddressError, IpRange, IpRangeError, IpRangeTree, IpRangeTreeBuilder,
 };
 use ip::{IpPrefix, IpPrefixError};
-
+use std::fmt::Display;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::num::ParseIntError;
+use std::path::Path;
+use std::str::FromStr;
 
 //------------ Registry -----------------------------------------------------
 
@@ -26,7 +20,7 @@ pub enum Registry {
     Apnic,
     Arin,
     Lacnic,
-    RipeNcc
+    RipeNcc,
 }
 
 impl FromStr for Registry {
@@ -34,17 +28,16 @@ impl FromStr for Registry {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "iana"    => Ok(Registry::Iana),
+            "iana" => Ok(Registry::Iana),
             "afrinic" => Ok(Registry::Afrinic),
-            "apnic"   => Ok(Registry::Apnic),
-            "arin"    => Ok(Registry::Arin),
-            "lacnic"  => Ok(Registry::Lacnic),
+            "apnic" => Ok(Registry::Apnic),
+            "arin" => Ok(Registry::Arin),
+            "lacnic" => Ok(Registry::Lacnic),
             "ripencc" => Ok(Registry::RipeNcc),
-            r => Err(Error::parse_error(format!("unknown registry: {}", r)))
+            r => Err(Error::parse_error(format!("unknown registry: {}", r))),
         }
     }
 }
-
 
 //------------ DelegationState -----------------------------------------------
 
@@ -54,7 +47,7 @@ pub enum DelegationState {
     IETF,
     AVAILABLE,
     ASSIGNED,
-    RESERVED
+    RESERVED,
 }
 
 impl FromStr for DelegationState {
@@ -62,17 +55,16 @@ impl FromStr for DelegationState {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "ianapool"  => Ok(DelegationState::IANAPOOL),
-            "ietf"      => Ok(DelegationState::IETF),
+            "ianapool" => Ok(DelegationState::IANAPOOL),
+            "ietf" => Ok(DelegationState::IETF),
             "available" => Ok(DelegationState::AVAILABLE),
-            "assigned"  => Ok(DelegationState::ASSIGNED),
+            "assigned" => Ok(DelegationState::ASSIGNED),
             "allocated" => Ok(DelegationState::ASSIGNED),
-            "reserved"  => Ok(DelegationState::RESERVED),
-            s => Err(Error::parse_error(format!("Unknown state: {}", s)))
+            "reserved" => Ok(DelegationState::RESERVED),
+            s => Err(Error::parse_error(format!("Unknown state: {}", s))),
         }
     }
 }
-
 
 //------------ IpDelegation -------------------------------------------------
 
@@ -81,36 +73,49 @@ pub struct IpDelegation {
     reg: Registry,
     cc: String,
     range: IpRange,
-    state: DelegationState
+    state: DelegationState,
 }
 
 impl IpDelegation {
-    pub fn reg(&self) -> &Registry { &self.reg }
-    pub fn cc(&self) -> &str { &self.cc }
-    pub fn range(&self) -> &IpRange { &self.range }
-    pub fn state(&self) -> &DelegationState { &self.state }
+    pub fn reg(&self) -> &Registry {
+        &self.reg
+    }
+    pub fn cc(&self) -> &str {
+        &self.cc
+    }
+    pub fn range(&self) -> &IpRange {
+        &self.range
+    }
+    pub fn state(&self) -> &DelegationState {
+        &self.state
+    }
 }
 
 impl IpDelegation {
     fn from_csv_line(s: &str) -> Result<Option<Self>, Error> {
         if s.starts_with("prefix") {
-            return Ok(None)
+            return Ok(None);
         }
 
         let mut values = s.split(',');
 
-        let prefix = values.next().ok_or(Error::missing("prefix", s))?;
-        let rir = values.next().ok_or(Error::missing("rir", s))?;
-        let _date_str = values.next().ok_or(Error::missing("date", s))?;
-        let cc_str = values.next().ok_or(Error::missing("cc", s))?;
-        let state_str = values.next().ok_or(Error::missing("state", s))?;
+        let prefix = values.next().ok_or_else(|| Error::missing("prefix", s))?;
+        let rir = values.next().ok_or_else(|| Error::missing("rir", s))?;
+        let _date_str = values.next().ok_or_else(|| Error::missing("date", s))?;
+        let cc_str = values.next().ok_or_else(|| Error::missing("cc", s))?;
+        let state_str = values.next().ok_or_else(|| Error::missing("state", s))?;
 
         let reg = Registry::from_str(rir)?;
         let cc = cc_str.to_string();
         let range: IpRange = IpPrefix::from_str(prefix)?.into();
         let state = DelegationState::from_str(state_str)?;
 
-        Ok(Some(IpDelegation { reg, cc, range, state }))
+        Ok(Some(IpDelegation {
+            reg,
+            cc,
+            range,
+            state,
+        }))
     }
 
     fn from_nro_line(s: &str) -> Result<Option<Self>, Error> {
@@ -119,13 +124,13 @@ impl IpDelegation {
         } else {
             let mut values = s.split('|');
 
-            let reg_str = values.next().ok_or(Error::missing("rir", s))?;
-            let cc_str = values.next().ok_or(Error::missing("cc", s))?;
-            let inr_type_str = values.next().ok_or(Error::missing("type", s))?;
-            let min_str = values.next().ok_or(Error::missing("min", s))?;
-            let amount_str = values.next().ok_or(Error::missing("amount", s))?;
-            let _date_str = values.next().ok_or(Error::missing("date", s))?;
-            let state_str = values.next().ok_or(Error::missing("state", s))?;
+            let reg_str = values.next().ok_or_else(|| Error::missing("rir", s))?;
+            let cc_str = values.next().ok_or_else(|| Error::missing("cc", s))?;
+            let inr_type_str = values.next().ok_or_else(|| Error::missing("type", s))?;
+            let min_str = values.next().ok_or_else(|| Error::missing("min", s))?;
+            let amount_str = values.next().ok_or_else(|| Error::missing("amount", s))?;
+            let _date_str = values.next().ok_or_else(|| Error::missing("date", s))?;
+            let state_str = values.next().ok_or_else(|| Error::missing("state", s))?;
 
             if inr_type_str != "ipv4" && inr_type_str != "ipv6" {
                 Err(Error::parse_error("unsupported inr type"))
@@ -137,11 +142,15 @@ impl IpDelegation {
                 let range = IpRange::from_min_and_number(min, number)?;
                 let state = DelegationState::from_str(state_str)?;
 
-                Ok(Some(IpDelegation {reg, cc, range, state }))
+                Ok(Some(IpDelegation {
+                    reg,
+                    cc,
+                    range,
+                    state,
+                }))
             }
         }
     }
-
 }
 
 impl AsRef<IpRange> for IpDelegation {
@@ -150,16 +159,15 @@ impl AsRef<IpRange> for IpDelegation {
     }
 }
 
-
 //------------ IpDelegations ------------------------------------------------
 
 #[derive(Debug)]
 pub struct IpDelegations {
-    tree: IpRangeTree<IpDelegation>
+    tree: IpRangeTree<IpDelegation>,
 }
 
 impl IpDelegations {
-    pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
+    pub fn from_file(path: &Path) -> Result<Self, Error> {
         let file = File::open(path).map_err(|_| Error::read_error(path))?;
         let reader = BufReader::new(file);
 
@@ -173,25 +181,24 @@ impl IpDelegations {
                 if let Some(del) = IpDelegation::from_csv_line(&line)? {
                     builder.add(del);
                 }
-            } else {
-                if let Some(del) = IpDelegation::from_nro_line(&line)? {
-                    builder.add(del);
-                }
+            } else if let Some(del) = IpDelegation::from_nro_line(&line)? {
+                builder.add(del);
             }
-        };
+        }
 
-        Ok(IpDelegations { tree: builder.build()} )
+        Ok(IpDelegations {
+            tree: builder.build(),
+        })
     }
 
     pub fn find_cc(&self, range: &IpRange) -> &str {
         let matching = self.tree.matching_or_less_specific(range);
         match matching.first() {
-            Some(delegation) => &delegation.cc(),
-            None => "XX"
+            Some(delegation) => delegation.cc(),
+            None => "XX",
         }
     }
 }
-
 
 //------------ Error --------------------------------------------------------
 
@@ -208,7 +215,7 @@ pub enum Error {
 }
 
 impl Error {
-    fn read_error(path: &PathBuf) -> Self {
+    fn read_error(path: &Path) -> Self {
         Error::CannotRead(path.to_string_lossy().to_string())
     }
     fn parse_error(e: impl Display) -> Self {
@@ -220,19 +227,27 @@ impl Error {
 }
 
 impl From<IpRangeError> for Error {
-    fn from(e: IpRangeError) -> Self { Self::parse_error(e) }
+    fn from(e: IpRangeError) -> Self {
+        Self::parse_error(e)
+    }
 }
 
 impl From<IpAddressError> for Error {
-    fn from(e: IpAddressError) -> Self { Self::parse_error(e) }
+    fn from(e: IpAddressError) -> Self {
+        Self::parse_error(e)
+    }
 }
 
 impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Self { Self::parse_error(e) }
+    fn from(e: ParseIntError) -> Self {
+        Self::parse_error(e)
+    }
 }
 
 impl From<IpPrefixError> for Error {
-    fn from(e: IpPrefixError) -> Self { Self::parse_error(e) }
+    fn from(e: IpPrefixError) -> Self {
+        Self::parse_error(e)
+    }
 }
 
 //------------ Tests --------------------------------------------------------
@@ -240,6 +255,7 @@ impl From<IpPrefixError> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn should_read_from_file() {
@@ -253,6 +269,3 @@ mod tests {
         IpDelegations::from_file(&path).unwrap();
     }
 }
-
-
-

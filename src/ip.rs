@@ -1,25 +1,24 @@
+use intervaltree::IntervalTree;
+use serde::Serialize;
+use serde::Serializer;
 use std::cmp;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::net;
 use std::num::ParseIntError;
-use std::str::FromStr;
 use std::ops::Range;
-use intervaltree::IntervalTree;
-use serde::Serialize;
-use serde::Serializer;
-use std::cmp::Ordering;
+use std::str::FromStr;
 
 // https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
 const IPV4_UNUSED: u128 = 0xffff_ffff_ffff_ffff_ffff_ffff_0000_0000;
 
-
 //------------ Asn ----------------------------------------------------------
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Asn {
-    val: u32
+    val: u32,
 }
 
 impl Ord for Asn {
@@ -57,21 +56,20 @@ impl fmt::Display for Asn {
 }
 
 impl Serialize for Asn {
-    fn serialize<S>(
-        &self,
-        serializer: S
-    ) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
-
 
 //------------ AsnRange ------------------------------------------------------
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AsnRange {
     min: Asn,
-    max: Asn
+    max: Asn,
 }
 
 impl AsnRange {
@@ -87,7 +85,7 @@ impl FromStr for AsnRange {
         let values: Vec<&str> = s.split('-').collect();
 
         if values.len() != 2 {
-            return Err(AsnError::InvalidRange)
+            return Err(AsnError::InvalidRange);
         }
 
         let min = Asn::from_str(values[0])?;
@@ -108,21 +106,19 @@ impl fmt::Display for AsnRange {
 }
 
 impl Serialize for AsnRange {
-    fn serialize<S>(
-        &self,
-        serializer: S
-    ) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
-
-
 
 //------------ AsnSet --------------------------------------------------------
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AsnSet {
-    ranges: Vec<AsnRange>
+    ranges: Vec<AsnRange>,
 }
 
 impl AsnSet {
@@ -161,11 +157,11 @@ impl FromStr for AsnSet {
         let mut elements = vec![];
         for el in string.split(',') {
             if el.contains('-') {
-                let range = AsnRange::from_str(&el)?;
+                let range = AsnRange::from_str(el)?;
                 elements.push(range);
             } else {
-                let asn = Asn::from_str(&el)?;
-                let range = AsnRange { min: asn, max: asn};
+                let asn = Asn::from_str(el)?;
+                let range = AsnRange { min: asn, max: asn };
                 elements.push(range);
             }
         }
@@ -188,15 +184,13 @@ impl fmt::Display for AsnSet {
 }
 
 impl Serialize for AsnSet {
-    fn serialize<S>(
-        &self,
-        serializer: S
-    ) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
-
-
 
 //------------ IpAddressFamily -----------------------------------------------
 
@@ -206,12 +200,11 @@ pub enum IpAddressFamily {
     Ipv6,
 }
 
-
 //------------ IpAddress -----------------------------------------------------
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct IpAddress {
-    value: u128
+    value: u128,
 }
 
 impl IpAddress {
@@ -223,12 +216,8 @@ impl IpAddress {
 
     pub fn to_net_ipaddr(&self) -> net::IpAddr {
         match self.ip_address_family() {
-            IpAddressFamily::Ipv4 => {
-                net::IpAddr::V4(net::Ipv4Addr::from(self.value as u32))
-            },
-            IpAddressFamily::Ipv6 => {
-                net::IpAddr::V6(net::Ipv6Addr::from(self.value))
-            }
+            IpAddressFamily::Ipv4 => net::IpAddr::V4(net::Ipv4Addr::from(self.value as u32)),
+            IpAddressFamily::Ipv6 => net::IpAddr::V6(net::Ipv6Addr::from(self.value)),
         }
     }
     pub fn ip_address_family(&self) -> IpAddressFamily {
@@ -253,9 +242,10 @@ impl fmt::Display for IpAddress {
 }
 
 impl Serialize for IpAddress {
-    fn serialize<S>(
-        &self, serializer: S
-    ) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
@@ -271,7 +261,9 @@ impl FromStr for IpAddress {
                 value <<= 8;
                 value += u128::from(*octet);
             }
-            Ok(IpAddress { value: IPV4_IN_IPV6 | value })
+            Ok(IpAddress {
+                value: IPV4_IN_IPV6 | value,
+            })
         } else if s.contains(':') {
             let ipv6 = net::Ipv6Addr::from_str(s)?;
             let mut value = 0;
@@ -285,7 +277,6 @@ impl FromStr for IpAddress {
         }
     }
 }
-
 
 //------------ IpRange -------------------------------------------------------
 
@@ -306,15 +297,13 @@ impl IpRange {
 
     pub fn from_min_and_number(min: IpAddress, number: u128) -> Result<Self, IpRangeError> {
         let value = min.value + number - 1;
-        let max = IpAddress{ value };
+        let max = IpAddress { value };
         Self::create(min, max)
     }
 
     pub fn is_prefix(&self) -> bool {
-
         // The following code is inspired by the RIPE NCC ip-resource java library
         // https://github.com/RIPE-NCC/ipresource/blob/master/src/main/java/net/ripe/ipresource/IpRange.java
-
 
         // First get the size of the largest common denominator
         let lead_in_common = (self.min.value ^ self.max.value).leading_zeros();
@@ -334,8 +323,8 @@ impl IpRange {
 
     #[allow(clippy::nonminimal_bool)]
     pub fn intersects(&self, other: IpRange) -> bool {
-        (self.min.value <= other.min.value && self.max.value >= other.min.value) ||
-        (self.min.value > other.min.value && self.min.value <= other.max.value)
+        (self.min.value <= other.min.value && self.max.value >= other.min.value)
+            || (self.min.value > other.min.value && self.min.value <= other.max.value)
     }
 
     pub fn contains(&self, other: &Range<u128>) -> bool {
@@ -347,7 +336,10 @@ impl IpRange {
     }
 
     pub fn to_range(&self) -> std::ops::Range<u128> {
-        std::ops::Range { start: self.min.value, end: self.max.value }
+        std::ops::Range {
+            start: self.min.value,
+            end: self.max.value,
+        }
     }
 }
 
@@ -364,9 +356,10 @@ impl fmt::Display for IpRange {
 }
 
 impl Serialize for IpRange {
-    fn serialize<S>(
-        &self, serializer: S
-    ) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
@@ -377,7 +370,7 @@ impl FromStr for IpRange {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let ip_values: Vec<&str> = s.split('-').collect();
 
-        if ip_values.iter().count() != 2 {
+        if ip_values.len() != 2 {
             return Err(IpRangeError::MustUseDashNotation);
         }
 
@@ -405,7 +398,9 @@ pub struct IpPrefix {
 }
 
 impl IpPrefix {
-    pub fn length(&self) -> u8 { self.length }
+    pub fn length(&self) -> u8 {
+        self.length
+    }
 }
 
 impl FromStr for IpPrefix {
@@ -414,7 +409,7 @@ impl FromStr for IpPrefix {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let ip_values: Vec<&str> = s.split('/').collect();
 
-        if ip_values.iter().count() != 2 {
+        if ip_values.len() != 2 {
             return Err(IpPrefixError::InvalidSyntax);
         }
 
@@ -423,7 +418,7 @@ impl FromStr for IpPrefix {
 
         let full_length = match min.ip_address_family() {
             IpAddressFamily::Ipv4 => length + 96,
-            IpAddressFamily::Ipv6 => length
+            IpAddressFamily::Ipv6 => length,
         };
 
         if full_length > 128 || full_length < (128 - min.value.trailing_zeros() as u8) {
@@ -458,16 +453,17 @@ impl fmt::Display for IpPrefix {
 }
 
 impl Serialize for IpPrefix {
-    fn serialize<S>(
-        &self, serializer: S
-    ) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
 
-impl Into<IpRange> for IpPrefix {
-    fn into(self) -> IpRange {
-        self.range
+impl From<IpPrefix> for IpRange {
+    fn from(pfx: IpPrefix) -> Self {
+        pfx.range
     }
 }
 
@@ -475,7 +471,7 @@ impl Into<IpRange> for IpPrefix {
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct IpResourceSet {
-    ranges: Vec<IpRange>
+    ranges: Vec<IpRange>,
 }
 
 impl IpResourceSet {
@@ -485,12 +481,11 @@ impl IpResourceSet {
 
     // Returns the intersecting IpRanges as the left return value, and non-intersecting as the right.
     fn partition_intersecting(&self, ip_range: IpRange) -> (Vec<IpRange>, Vec<IpRange>) {
-        self.ranges.iter().partition(|ref i| i.intersects(ip_range))
+        self.ranges.iter().partition(|i| i.intersects(ip_range))
     }
 
     pub fn add_ip_range(&mut self, ip_range: IpRange) {
         let (intersecting, mut keep) = self.partition_intersecting(ip_range);
-
 
         let mut min = ip_range.min.value;
         let mut max = ip_range.max.value;
@@ -507,7 +502,10 @@ impl IpResourceSet {
     }
 
     pub fn add_ip_address(&mut self, ip_address: IpAddress) {
-        let range = IpRange { min: ip_address, max: ip_address };
+        let range = IpRange {
+            min: ip_address,
+            max: ip_address,
+        };
         self.add_ip_range(range);
     }
 
@@ -517,18 +515,18 @@ impl IpResourceSet {
         for intersecting_range in intersecting.iter() {
             if range_to_remove.max.value < intersecting_range.max.value {
                 // Something on the right should remain
-                keep.extend(
-                    IpRange::create(
-                        IpAddress::new(range_to_remove.max.value + 1),
-                        IpAddress::new(intersecting_range.max.value)));
+                keep.extend(IpRange::create(
+                    IpAddress::new(range_to_remove.max.value + 1),
+                    IpAddress::new(intersecting_range.max.value),
+                ));
             }
 
             if range_to_remove.min.value > intersecting_range.min.value {
                 // Something on the left should remain
-                keep.extend(
-                    IpRange::create(
-                        IpAddress::new(intersecting_range.min.value),
-                        IpAddress::new(range_to_remove.min.value - 1)));
+                keep.extend(IpRange::create(
+                    IpAddress::new(intersecting_range.min.value),
+                    IpAddress::new(range_to_remove.min.value - 1),
+                ));
             }
         }
 
@@ -543,7 +541,6 @@ impl IpResourceSet {
         self.ranges.is_empty()
     }
 }
-
 
 impl FromStr for IpResourceSet {
     type Err = IpRespourceSetError;
@@ -586,19 +583,19 @@ impl fmt::Display for IpResourceSet {
 }
 
 impl Serialize for IpResourceSet {
-    fn serialize<S>(
-        &self, serializer: S
-    ) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
-
 
 //------------ IpRangeTree --------------------------------------------------
 
 #[derive(Debug)]
 pub struct IpRangeTree<V: AsRef<IpRange>> {
-    tree: IntervalTree<u128, Vec<V>>
+    tree: IntervalTree<u128, Vec<V>>,
 }
 
 impl<V: AsRef<IpRange>> IpRangeTree<V> {
@@ -646,16 +643,20 @@ impl<V: AsRef<IpRange>> IpRangeTree<V> {
 }
 
 pub struct IpRangeTreeBuilder<V: AsRef<IpRange>> {
-    values: HashMap<Range<u128>, Vec<V>>
+    values: HashMap<Range<u128>, Vec<V>>,
 }
 
 impl<V: AsRef<IpRange>> IpRangeTreeBuilder<V> {
-    pub fn empty() -> Self { IpRangeTreeBuilder { values: HashMap::new() }}
+    pub fn empty() -> Self {
+        IpRangeTreeBuilder {
+            values: HashMap::new(),
+        }
+    }
 
     pub fn add(&mut self, value: V) {
         let ip_range = value.as_ref().to_range();
 
-        let entry = self.values.entry(ip_range).or_insert_with(|| vec![]);
+        let entry = self.values.entry(ip_range).or_default();
         entry.push(value);
     }
 
@@ -664,8 +665,6 @@ impl<V: AsRef<IpRange>> IpRangeTreeBuilder<V> {
         IpRangeTree { tree }
     }
 }
-
-
 
 //------------ Errors -------------------------------------------------------
 
@@ -684,7 +683,6 @@ impl From<net::AddrParseError> for IpAddressError {
     }
 }
 
-
 #[derive(Debug, Display)]
 pub enum IpRangeError {
     #[display(fmt = "Minimum value exceeds maximum value")]
@@ -702,7 +700,6 @@ impl From<IpAddressError> for IpRangeError {
         IpRangeError::ContainsInvalidIpAddress(e)
     }
 }
-
 
 #[derive(Debug, Display)]
 pub enum IpPrefixError {
@@ -728,7 +725,6 @@ impl From<ParseIntError> for IpPrefixError {
     }
 }
 
-
 #[derive(Debug, Display)]
 pub enum IpRespourceSetError {
     #[display(fmt = "Invalid syntax. Expect comma separated prefixes/ranges")]
@@ -742,26 +738,28 @@ pub enum IpRespourceSetError {
 }
 
 impl From<IpRangeError> for IpRespourceSetError {
-    fn from(e: IpRangeError) -> Self { IpRespourceSetError::IpRangeError(e)}
+    fn from(e: IpRangeError) -> Self {
+        IpRespourceSetError::IpRangeError(e)
+    }
 }
 
 impl From<IpPrefixError> for IpRespourceSetError {
-    fn from(e: IpPrefixError) -> Self { IpRespourceSetError::IpPrefixError(e)}
+    fn from(e: IpPrefixError) -> Self {
+        IpRespourceSetError::IpPrefixError(e)
+    }
 }
-
 
 #[derive(Debug, Display)]
 pub enum AsnError {
-    #[display(fmt="Expected comma separated ASNs or ASN ranges")]
+    #[display(fmt = "Expected comma separated ASNs or ASN ranges")]
     ExpectedCommaSeparated,
 
-    #[display(fmt="Invalid range. Expected something like: AS1-AS3")]
+    #[display(fmt = "Invalid range. Expected something like: AS1-AS3")]
     InvalidRange,
 
-    #[display(fmt="Invalid ASN. Expected something like: 1 or AS1")]
+    #[display(fmt = "Invalid ASN. Expected something like: 1 or AS1")]
     InvalidAsn,
 }
-
 
 //------------ Tests --------------------------------------------------------
 
@@ -772,11 +770,26 @@ mod tests {
     #[test]
     fn test_make_ipv4_from_string() {
         assert_eq!(IPV4_IN_IPV6, IpAddress::from_str("0.0.0.0").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 255, IpAddress::from_str("0.0.0.255").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 256, IpAddress::from_str("0.0.1.0").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 65535, IpAddress::from_str("0.0.255.255").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 65536, IpAddress::from_str("0.1.0.0").unwrap().value);
-        assert_eq!(IPV4_IN_IPV6 | 16_777_216, IpAddress::from_str("1.0.0.0").unwrap().value);
+        assert_eq!(
+            IPV4_IN_IPV6 | 255,
+            IpAddress::from_str("0.0.0.255").unwrap().value
+        );
+        assert_eq!(
+            IPV4_IN_IPV6 | 256,
+            IpAddress::from_str("0.0.1.0").unwrap().value
+        );
+        assert_eq!(
+            IPV4_IN_IPV6 | 65535,
+            IpAddress::from_str("0.0.255.255").unwrap().value
+        );
+        assert_eq!(
+            IPV4_IN_IPV6 | 65536,
+            IpAddress::from_str("0.1.0.0").unwrap().value
+        );
+        assert_eq!(
+            IPV4_IN_IPV6 | 16_777_216,
+            IpAddress::from_str("1.0.0.0").unwrap().value
+        );
 
         assert!(IpAddress::from_str("yadiyada").is_err());
         assert!(IpAddress::from_str("").is_err());
@@ -785,9 +798,20 @@ mod tests {
 
     #[test]
     fn test_is_ipv4() {
-        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_str("0.0.0.0").unwrap().ip_address_family());
-        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_str("10.0.0.0").unwrap().ip_address_family());
-        assert_eq!(IpAddressFamily::Ipv4, IpAddress::from_str("255.255.255.255").unwrap().ip_address_family());
+        assert_eq!(
+            IpAddressFamily::Ipv4,
+            IpAddress::from_str("0.0.0.0").unwrap().ip_address_family()
+        );
+        assert_eq!(
+            IpAddressFamily::Ipv4,
+            IpAddress::from_str("10.0.0.0").unwrap().ip_address_family()
+        );
+        assert_eq!(
+            IpAddressFamily::Ipv4,
+            IpAddress::from_str("255.255.255.255")
+                .unwrap()
+                .ip_address_family()
+        );
     }
 
     #[test]
@@ -800,28 +824,50 @@ mod tests {
 
     #[test]
     fn test_range_is_prefix() {
-        assert!(IpRange::from_str("10.0.0.0-10.0.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_str("10.0.0.0-10.1.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_str("0.0.0.0-1.255.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_str("2.0.0.0-3.255.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_str("0.0.0.0-3.255.255.255").unwrap().is_prefix());
-        assert!(IpRange::from_str("4.0.0.0-5.255.255.255").unwrap().is_prefix());
+        assert!(IpRange::from_str("10.0.0.0-10.0.255.255")
+            .unwrap()
+            .is_prefix());
+        assert!(IpRange::from_str("10.0.0.0-10.1.255.255")
+            .unwrap()
+            .is_prefix());
+        assert!(IpRange::from_str("0.0.0.0-1.255.255.255")
+            .unwrap()
+            .is_prefix());
+        assert!(IpRange::from_str("2.0.0.0-3.255.255.255")
+            .unwrap()
+            .is_prefix());
+        assert!(IpRange::from_str("0.0.0.0-3.255.255.255")
+            .unwrap()
+            .is_prefix());
+        assert!(IpRange::from_str("4.0.0.0-5.255.255.255")
+            .unwrap()
+            .is_prefix());
         assert!(IpRange::from_str("4.0.0.0-4.0.0.0").unwrap().is_prefix());
-        assert!(!IpRange::from_str("0.0.0.255-0.0.1.255").unwrap().is_prefix());
-        assert!(!IpRange::from_str("2.0.0.0-5.255.255.255").unwrap().is_prefix());
-        assert!(!IpRange::from_str("0.0.0.0-2.255.255.255").unwrap().is_prefix());
-        assert!(!IpRange::from_str("10.0.0.0-10.0.255.254").unwrap().is_prefix());
-        assert!(!IpRange::from_str("10.0.0.0-10.0.254.255").unwrap().is_prefix());
-        assert!(!IpRange::from_str("0.0.0.128-0.0.1.127").unwrap().is_prefix());
+        assert!(!IpRange::from_str("0.0.0.255-0.0.1.255")
+            .unwrap()
+            .is_prefix());
+        assert!(!IpRange::from_str("2.0.0.0-5.255.255.255")
+            .unwrap()
+            .is_prefix());
+        assert!(!IpRange::from_str("0.0.0.0-2.255.255.255")
+            .unwrap()
+            .is_prefix());
+        assert!(!IpRange::from_str("10.0.0.0-10.0.255.254")
+            .unwrap()
+            .is_prefix());
+        assert!(!IpRange::from_str("10.0.0.0-10.0.254.255")
+            .unwrap()
+            .is_prefix());
+        assert!(!IpRange::from_str("0.0.0.128-0.0.1.127")
+            .unwrap()
+            .is_prefix());
     }
 
     #[test]
     fn test_range_from_start_and_number() {
         let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
-        let range_with_number = IpRange::from_min_and_number(
-            IpAddress::from_str("10.0.0.0").unwrap(),
-            256
-        ).unwrap();
+        let range_with_number =
+            IpRange::from_min_and_number(IpAddress::from_str("10.0.0.0").unwrap(), 256).unwrap();
 
         assert_eq!(range, range_with_number);
     }
@@ -882,21 +928,34 @@ mod tests {
 
         let intersecting_start = IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
         set.remove_ip_range(intersecting_start);
-        assert_eq!(set.ranges, vec![IpRange::from_str("10.0.0.1-10.0.0.255").unwrap()]);
+        assert_eq!(
+            set.ranges,
+            vec![IpRange::from_str("10.0.0.1-10.0.0.255").unwrap()]
+        );
 
         let start_left_hand = IpRange::from_str("10.0.0.1-10.0.0.2").unwrap();
         set.remove_ip_range(start_left_hand);
-        assert_eq!(set.ranges, vec![IpRange::from_str("10.0.0.3-10.0.0.255").unwrap()]);
+        assert_eq!(
+            set.ranges,
+            vec![IpRange::from_str("10.0.0.3-10.0.0.255").unwrap()]
+        );
 
         let middle = IpRange::from_str("10.0.0.10-10.0.0.11").unwrap();
         set.remove_ip_range(middle);
-        assert_eq!(set.ranges,
-                   vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap(),
-                        IpRange::from_str("10.0.0.3-10.0.0.9").unwrap()]);
+        assert_eq!(
+            set.ranges,
+            vec![
+                IpRange::from_str("10.0.0.12-10.0.0.255").unwrap(),
+                IpRange::from_str("10.0.0.3-10.0.0.9").unwrap()
+            ]
+        );
 
         let exact_match = IpRange::from_str("10.0.0.3-10.0.0.9").unwrap();
         set.remove_ip_range(exact_match);
-        assert_eq!(set.ranges, vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap()]);
+        assert_eq!(
+            set.ranges,
+            vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap()]
+        );
 
         let encompassing = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
         set.remove_ip_range(encompassing);
@@ -905,12 +964,12 @@ mod tests {
 
     #[test]
     fn test_ip_range_tree() {
-
         #[derive(Debug)]
+        #[allow(dead_code)]
         struct TypeWithRange {
             asn: u32,
             prefix: IpRange,
-            max_length: u8
+            max_length: u8,
         }
 
         impl AsRef<IpRange> for TypeWithRange {
@@ -920,13 +979,27 @@ mod tests {
         }
 
         let vrps = vec![
-            TypeWithRange { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
-            TypeWithRange { asn: 2, prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(), max_length: 24 },
-            TypeWithRange { asn: 0, prefix: IpRange::from_str("10.0.0.0-10.0.1.255").unwrap(), max_length: 24 },
-            TypeWithRange { asn: 0, prefix: IpRange::from_str("10.0.2.0-10.0.3.255").unwrap(), max_length: 24 },
+            TypeWithRange {
+                asn: 0,
+                prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(),
+                max_length: 24,
+            },
+            TypeWithRange {
+                asn: 2,
+                prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(),
+                max_length: 24,
+            },
+            TypeWithRange {
+                asn: 0,
+                prefix: IpRange::from_str("10.0.0.0-10.0.1.255").unwrap(),
+                max_length: 24,
+            },
+            TypeWithRange {
+                asn: 0,
+                prefix: IpRange::from_str("10.0.2.0-10.0.3.255").unwrap(),
+                max_length: 24,
+            },
         ];
-
-
 
         let mut builder = IpRangeTreeBuilder::empty();
         for vrp in vrps {
@@ -951,6 +1024,4 @@ mod tests {
         let matches = tree.matching_or_less_specific(&search);
         assert_eq!(3, matches.len());
     }
-
 }
-

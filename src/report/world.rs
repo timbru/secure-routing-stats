@@ -1,11 +1,4 @@
 //! Reporting of the stats found
-use std::collections::HashMap;
-use std::cmp::Ordering;
-use std::fmt;
-use std::fmt::Display;
-use std::fmt::Write;
-use std::path::PathBuf;
-use clap::ArgMatches;
 use crate::announcements::Announcements;
 use crate::delegations::IpDelegations;
 use crate::ip::IpRespourceSetError;
@@ -13,27 +6,33 @@ use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
 use crate::vrps::Vrps;
-
+use clap::ArgMatches;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Write;
+use std::path::PathBuf;
 
 //------------ CountryStat --------------------------------------------------
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CountryStat {
     routes_valid: usize,
     routes_inv_l: usize,
     routes_inv_a: usize,
     routes_not_f: usize,
     vrps_seen: usize,
-    vrps_unseen: usize
+    vrps_unseen: usize,
 }
 
 impl CountryStat {
     pub fn add_ann(&mut self, ann: &ValidatedAnnouncement) {
         match ann.state() {
-            ValidationState::Valid         => self.routes_valid += 1,
+            ValidationState::Valid => self.routes_valid += 1,
             ValidationState::InvalidLength => self.routes_inv_l += 1,
-            ValidationState::InvalidAsn    => self.routes_inv_a += 1,
-            ValidationState::NotFound      => self.routes_not_f += 1,
+            ValidationState::InvalidAsn => self.routes_inv_a += 1,
+            ValidationState::NotFound => self.routes_not_f += 1,
         }
     }
 
@@ -83,23 +82,11 @@ impl CountryStat {
     }
 }
 
-impl Default for CountryStat {
-    fn default() -> Self {
-        CountryStat {
-            routes_valid: 0,
-            routes_inv_l: 0,
-            routes_inv_a: 0,
-            routes_not_f: 0,
-            vrps_seen: 0,
-            vrps_unseen: 0
-        }
-    }
-}
-
 impl Display for CountryStat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-"Valid: {}, \
+        write!(
+            f,
+            "Valid: {}, \
 Invalid Length: {}, \
 Invalid ASN: {}, \
 Not Found: {}, \
@@ -115,13 +102,12 @@ VRPS unseen: {}",
     }
 }
 
-
 //------------ CountryStats -------------------------------------------------
 
 /// This type keeps a map of country code to CountryStat.
 #[derive(Clone, Debug, Serialize)]
 pub struct CountryStats {
-    stats: HashMap<String, CountryStat>
+    stats: HashMap<String, CountryStat>,
 }
 
 impl Default for CountryStats {
@@ -133,9 +119,10 @@ impl Default for CountryStats {
 }
 
 impl CountryStats {
-
     fn get_cc(&mut self, cc: &str) -> &mut CountryStat {
-        self.stats.entry(cc.to_string()).or_insert_with(CountryStat::default)
+        self.stats
+            .entry(cc.to_string())
+            .or_insert_with(CountryStat::default)
     }
 
     /// Adds a ValidatedAnnouncement to the stats for the given country code.
@@ -236,16 +223,8 @@ impl CountryStats {
             let seen = country.stat.f_seen().unwrap_or(0.);
 
             if country.stat.has_adoption() {
-                writeln!(
-                    s,
-                    "{},{},{},{}",
-                    country.cc,
-                    coverage,
-                    accuracy,
-                    seen
-                ).unwrap();
+                writeln!(s, "{},{},{},{}", country.cc, coverage, accuracy, seen).unwrap();
             }
-
         }
 
         s
@@ -268,11 +247,10 @@ impl Display for CountryStats {
     }
 }
 
-
 #[derive(Eq, PartialEq)]
 struct CountryStatWithCode<'a> {
     cc: &'a str,
-    stat: &'a CountryStat
+    stat: &'a CountryStat,
 }
 
 impl<'a> Ord for CountryStatWithCode<'a> {
@@ -294,12 +272,11 @@ pub struct WorldStatsOpts {
     announcements: Vec<PathBuf>,
     vrps: PathBuf,
     dels: PathBuf,
-    format: WorldStatsFormat
+    format: WorldStatsFormat,
 }
 
 impl WorldStatsOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
-
         let mut announcements = vec![];
         for name in matches.values_of("announcements").unwrap().into_iter() {
             announcements.push(PathBuf::from(name))
@@ -316,27 +293,34 @@ impl WorldStatsOpts {
                 match format {
                     "json" => WorldStatsFormat::Json,
                     "text" => WorldStatsFormat::Text,
-                    f => return Err(Error::WithMessage(
-                        format!("Unsupported format: {}. Supported are: json|html|text", f)))
+                    f => {
+                        return Err(Error::WithMessage(format!(
+                            "Unsupported format: {}. Supported are: json|html|text",
+                            f
+                        )))
+                    }
                 }
             } else {
                 WorldStatsFormat::Json
             }
         };
 
-        Ok(WorldStatsOpts { announcements, vrps, dels, format })
+        Ok(WorldStatsOpts {
+            announcements,
+            vrps,
+            dels,
+            format,
+        })
     }
 }
-
 
 //------------ WorldStatsFormat ----------------------------------------------
 
 /// Output format. The HTML uses the template in ['templates/world.html'].
 pub enum WorldStatsFormat {
     Json,
-    Text
+    Text,
 }
-
 
 //------------ WorldStatsReporter --------------------------------------------
 
@@ -345,17 +329,20 @@ pub enum WorldStatsFormat {
 pub struct WorldStatsReporter<'a> {
     announcements: &'a Announcements,
     vrps: &'a Vrps,
-    delegations: &'a IpDelegations
+    delegations: &'a IpDelegations,
 }
 
 impl<'a> WorldStatsReporter<'a> {
-
     pub fn new(
         announcements: &'a Announcements,
         vrps: &'a Vrps,
-        delegations: &'a IpDelegations
+        delegations: &'a IpDelegations,
     ) -> Self {
-        WorldStatsReporter { announcements, vrps, delegations }
+        WorldStatsReporter {
+            announcements,
+            vrps,
+            delegations,
+        }
     }
 
     pub fn analyse(&self) -> CountryStats {
@@ -382,9 +369,7 @@ impl<'a> WorldStatsReporter<'a> {
     }
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
-        let announcements = Announcements::from_ris(
-            &options.announcements
-        ).unwrap();
+        let announcements = Announcements::from_ris(&options.announcements).unwrap();
 
         let vrps = Vrps::from_file(&options.vrps).unwrap();
 
@@ -396,7 +381,7 @@ impl<'a> WorldStatsReporter<'a> {
 
         match options.format {
             WorldStatsFormat::Json => Self::json(&stats)?,
-            WorldStatsFormat::Text => Self::text(&stats)
+            WorldStatsFormat::Text => Self::text(&stats),
         }
 
         Ok(())
@@ -410,9 +395,7 @@ impl<'a> WorldStatsReporter<'a> {
     fn text(stats: &CountryStats) {
         println!("{}", stats);
     }
-
 }
-
 
 //------------ Error --------------------------------------------------------
 
@@ -421,10 +404,10 @@ pub enum Error {
     #[display(fmt = "{}", _0)]
     WithMessage(String),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     IpResourceSet(IpRespourceSetError),
 
-    #[display(fmt="{}", _0)]
+    #[display(fmt = "{}", _0)]
     JsonError(serde_json::Error),
 }
 
@@ -435,10 +418,13 @@ impl Error {
 }
 
 impl From<IpRespourceSetError> for Error {
-    fn from(e: IpRespourceSetError) -> Self { Error::IpResourceSet(e) }
+    fn from(e: IpRespourceSetError) -> Self {
+        Error::IpResourceSet(e)
+    }
 }
 
 impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self { Error::JsonError(e) }
+    fn from(e: serde_json::Error) -> Self {
+        Error::JsonError(e)
+    }
 }
-
