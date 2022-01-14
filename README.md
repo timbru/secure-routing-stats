@@ -129,10 +129,10 @@ $ secure_routing_stats resources \
 
 Finally, you have the option of running the stats as an HTTP daemon. The 
 application will read files at startup, and from there on you can use the 
-UI/API to look at a worldmap of country stats, and to do queries about
+UI/API to look at a world map of country stats, and to do queries about
 specific IP prefixes (or ranges) and/or ASNs.
 
-We have a public instance of this running [here](https://nlnetlabs.nl/projects/rpki/rpki-analytics/)
+We have a public instance of this running [here](https://rpki-maps.nlnetlabs.nl/)
 
 You can run this locally:
 ```
@@ -146,9 +146,11 @@ The server will bind to port 8080, or die trying.
 
 ## Future Work
 
-In future we hope to extend the functionality with a number of things, like:
+We may do some more work on this in future, but then again.. we may also leave this
+to other implementations. In any case feel free to contact us if you are interested
+in anything specific. Ideas include:
 * Automatically re-read input data (configurable, with defaults)
-* See the effect of excpections or ROAs that you may want to create
+* See the effect of exceptions or ROAs that you may want to create
 * Historical analysis - what was the state on date X?
-* Historical analysis - what is the history of announcements and validatity given an IP prefix or ASN
+* Historical analysis - what is the history of announcements and validity given an IP prefix or ASN
 

@@ -1,6 +1,6 @@
 [package]
 name = "secure_routing_stats"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Tim Bruijnzeels <tim@nlnetlabs.nl>"]
 
 [dependencies]
