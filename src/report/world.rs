@@ -53,7 +53,11 @@ impl CountryStat {
     }
 
     pub fn f_adoption(&self) -> f32 {
-        (self.covered() * 10000 / self.total()) as f32 / 100.
+        if self.total() == 0 {
+            0_f32
+        } else {
+            (self.covered() * 10000 / self.total()) as f32 / 100.
+        }
     }
 
     pub fn has_adoption(&self) -> bool {
@@ -61,7 +65,11 @@ impl CountryStat {
     }
 
     pub fn f_valid(&self) -> f32 {
-        (self.routes_valid * 10000 / self.total()) as f32 / 100.
+        if self.total() == 0 {
+            0_f32
+        } else {
+            (self.routes_valid * 10000 / self.total()) as f32 / 100.
+        }
     }
 
     pub fn f_quality(&self) -> Option<f32> {
