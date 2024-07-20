@@ -1,4 +1,5 @@
 use crate::announcements::Announcement;
+use crate::ip::IpRange;
 use crate::vrps::ValidatedRoaPayload;
 use std::fmt::Display;
 use std::fmt;
@@ -93,6 +94,12 @@ impl Display for ValidatedAnnouncement {
     }
 }
 
+impl AsRef<IpRange> for ValidatedAnnouncement {
+    fn as_ref(&self) -> &IpRange {
+        self.announcement.prefix().as_ref()
+    }
+}
+
 
 //------------ RoaImpact -----------------------------------------------------
 
@@ -137,7 +144,7 @@ mod tests {
 
     #[test]
     fn should_validate_announcement() {
-        let ann = ann("65000, 192.168.0.0/20");
+        let ann = ann("65000, 192.168.0.0/20, 5");
 
         let vrp_valid   = vrp("AS65000, 192.168.0.0/20, 20");
         let vrp_inv_len = vrp("AS65000, 192.168.0.0/16, 16");
@@ -186,8 +193,8 @@ mod tests {
         let vrp_current = vrp("AS65000, 192.168.0.0/20, 20");
         let vrp_stale   = vrp("AS65000, 192.168.16.0/20, 20");
 
-        let ann1 = ann("65000, 192.168.0.0/20");
-        let ann2 = ann("65000, 192.168.16.0/24");
+        let ann1 = ann("65000, 192.168.0.0/20, 5");
+        let ann2 = ann("65000, 192.168.16.0/24, 5");
 
         assert!(!VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]).is_unseen());
         assert!(VrpImpact::evaluate(&vrp_stale, &[&ann1, &ann2]).is_unseen());

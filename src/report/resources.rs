@@ -127,14 +127,18 @@ impl<'a> ResourceReporter<'a> {
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
         let announcements = Announcements::from_ris(&options.announcements)?;
         let vrps = Vrps::from_file(&options.vrps)?;
-
-        let reporter = ResourceReporter::new(&announcements, &vrps);
-
-        let res = reporter.analyse(options.scope());
-
+               
         match options.format {
-            ReportFormat::Json => println!("{}", serde_json::to_string(&res)?),
-            ReportFormat::Text => print!("{}", res),
+            ReportFormat::Json => {
+                let reporter = ResourceReporter::new(&announcements, &vrps);
+                let res = reporter.analyse(options.scope());
+                println!("{}", serde_json::to_string(&res)?)
+            },
+            ReportFormat::Text => {
+                let reporter = ResourceReporter::new(&announcements, &vrps);
+                let res = reporter.analyse(options.scope());
+                print!("{}", res)
+            },
         }
 
         Ok(())

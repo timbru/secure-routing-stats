@@ -25,33 +25,41 @@ use std::str::FromStr;
 pub struct Announcement {
     asn: Asn,
     prefix: IpPrefix,
+    peers: u32,
 }
 
 impl Announcement {
-    pub fn new(prefix: IpPrefix, asn: Asn) -> Self {
-        Announcement { prefix, asn }
+    pub fn new(prefix: IpPrefix, asn: Asn, peers: u32) -> Self {
+        Announcement { prefix, asn, peers }
     }
 
     pub fn asn(&self) -> Asn {
         self.asn
     }
+
     pub fn prefix(&self) -> &IpPrefix {
         &self.prefix
+    }
+
+    pub fn peers(&self) -> u32 {
+        self.peers
     }
 }
 
 impl FromStr for Announcement {
     type Err = Error;
 
-    /// Expects: "Asn, IpPrefix"
+    /// Expects: "Asn, IpPrefix, peers"
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let line = s.replace(" ", ""); // strip whitespace
         let mut values = line.split(',');
         let asn_str = values.next().ok_or(Error::MissingColumn)?;
         let pfx_str = values.next().ok_or(Error::MissingColumn)?;
+        let peers_str = values.next().ok_or(Error::MissingColumn)?;
         let asn = Asn::from_str(asn_str)?;
         let prefix = IpPrefix::from_str(pfx_str)?;
-        Ok(Announcement { asn, prefix })
+        let peers: u32 = u32::from_str(peers_str)?;
+        Ok(Announcement { asn, prefix, peers })
     }
 }
 
@@ -85,9 +93,10 @@ impl Announcements {
 
             let asn_str = values.next().ok_or(Error::MissingColumn)?;
             let prefix_str = values.next().ok_or(Error::MissingColumn)?;
-            let peers = values.next().ok_or(Error::MissingColumn)?;
+            let peers_str = values.next().ok_or(Error::MissingColumn)?;
+            let peers = u32::from_str(peers_str)?;
 
-            if u32::from_str(peers)? <= 5 {
+            if peers <= 5 {
                 continue;
             }
 
@@ -98,7 +107,7 @@ impl Announcements {
             let asn = Asn::from_str(asn_str)?;
             let prefix = IpPrefix::from_str(prefix_str)?;
 
-            let ann = Announcement { asn, prefix };
+            let ann = Announcement { asn, prefix, peers };
 
             builder.add(ann);
         }
@@ -205,6 +214,7 @@ mod tests {
         let test_ann = Announcement {
             asn: Asn::from_str("AS13335").unwrap(),
             prefix: IpPrefix::from_str("1.0.0.0/24").unwrap(),
+            peers: 5,
         };
 
         let matches = announcements.contained_by(test_ann.as_ref());
@@ -213,6 +223,7 @@ mod tests {
         let test_v6_ann = Announcement {
             asn: Asn::from_str("AS112").unwrap(),
             prefix: IpPrefix::from_str("2001:4:112::/48").unwrap(),
+            peers: 5,
         };
 
         assert_eq!(1, announcements.contained_by(test_v6_ann.as_ref()).len())
