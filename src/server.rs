@@ -6,28 +6,22 @@ use std::sync::Arc;
 use axum::extract::Query;
 use axum::extract::State;
 use axum::response::Redirect;
-use axum::{
-    routing::get,
-    Router,
-    response::Json,
-};
+use axum::{response::Json, routing::get, Router};
 
 use tower_http::services::ServeDir;
 
 use clap::ArgMatches;
 
 use crate::announcements::{self, Announcements};
+use crate::delegations::{self, IpDelegations};
 use crate::report::resources::ResourceReportResult;
 use crate::report::world::CountryStats;
 use crate::report::ScopeQuery;
-use crate::vrps::Vrps;
-use crate::delegations::{self, IpDelegations};
 use crate::report::{
-    resources::ResourceReporter,
-    world::WorldStatsReporter,
-    ScopeLimits
+    resources::ResourceReporter, world::WorldStatsReporter, ScopeLimits,
 };
 use crate::vrps;
+use crate::vrps::Vrps;
 
 pub struct ServerOpts {
     announcements: Vec<PathBuf>,
@@ -91,41 +85,42 @@ impl StatsApp {
         let state = Arc::new(StatsServer::create(opts)?);
 
         let app = Router::new()
-            .route("/", get( || async { Redirect::temporary("/ui/world.html")} ))
+            .route(
+                "/",
+                get(|| async { Redirect::temporary("/ui/world.html") }),
+            )
             .nest_service("/ui", ServeDir::new("ui"))
             .route(
-                "/rpki-stats-api/details", 
+                "/rpki-stats-api/details",
                 // get (
                 //     {
                 //     let state = Arc::clone(&state);
                 //         move || Self::details (state)
                 //     }
                 // )
-                get(Self::details).with_state(state.clone())
+                get(Self::details).with_state(state.clone()),
             )
             .route(
-                "/rpki-stats-api/world.csv", 
-                get (
-                    {
+                "/rpki-stats-api/world.csv",
+                get({
                     let state = Arc::clone(&state);
-                        move || Self::world_csv (state)
-                    }
-                )
+                    move || Self::world_csv(state)
+                }),
             )
             .route(
-                "/rpki-stats-api/world.json", 
-                get (
-                    {
+                "/rpki-stats-api/world.json",
+                get({
                     let state = Arc::clone(&state);
-                        move || Self::world_json (state)
-                    }
-                )
+                    move || Self::world_json(state)
+                }),
             );
 
         // run our app with hyper, listening globally on port 3000
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+            .await
+            .unwrap();
         axum::serve(listener, app).await.unwrap();
-        
+
         // let server = server::new(move || Self::new(stats_server.clone()));
 
         // let address = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 8080);
@@ -142,13 +137,15 @@ impl StatsApp {
 
     async fn details(
         State(state): State<Arc<StatsServer>>,
-        scope_string: Query<ScopeQuery>
+        scope_string: Query<ScopeQuery>,
     ) -> Json<ResourceReportResult> {
+        let limits = ScopeLimits::from_str(&scope_string.scope)
+            .unwrap_or(ScopeLimits::empty());
 
-        let limits = 
-            ScopeLimits::from_str(&scope_string.scope).unwrap_or(ScopeLimits::empty());
-
-        let reporter = ResourceReporter::new(&state.sources.announcements, &state.sources.vrps);
+        let reporter = ResourceReporter::new(
+            &state.sources.announcements,
+            &state.sources.vrps,
+        );
 
         Json(reporter.analyse(&limits))
     }
@@ -171,11 +168,9 @@ impl StatsApp {
         );
 
         let stats = reporter.analyse();
-        
+
         stats.to_csv()
     }
-
-
 }
 
 //------------ Error --------------------------------------------------------

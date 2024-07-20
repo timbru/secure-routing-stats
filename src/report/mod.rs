@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use crate::ip::{
-    AsnSet, IpResourceSet, IpAddress, IpRange, AsnRange, Asn, IpRangeError, IpAddressError, AsnError, IpPrefix, IpPrefixError
+    Asn, AsnError, AsnRange, AsnSet, IpAddress, IpAddressError, IpPrefix,
+    IpPrefixError, IpRange, IpRangeError, IpResourceSet,
 };
 
 pub mod resources;
@@ -9,12 +10,12 @@ pub mod world;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ScopeQuery {
-    pub scope: String
+    pub scope: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ScopeLimits {
-    ips:  IpResourceSet,
+    ips: IpResourceSet,
     asns: AsnSet,
 }
 
@@ -28,7 +29,7 @@ impl FromStr for ScopeLimits {
 
         for el in line.split(',') {
             if el.is_empty() {
-                continue
+                continue;
             } else if el.contains('.') || el.contains(':') {
                 // IPv4 or IPv6
                 if el.contains('-') {
@@ -37,8 +38,7 @@ impl FromStr for ScopeLimits {
                 } else if el.contains('/') {
                     let prefix = IpPrefix::from_str(el)?;
                     ips.add_ip_range(prefix.into());
-                }
-                else {
+                } else {
                     let address = IpAddress::from_str(el)?;
                     ips.add_ip_address(address);
                 }
@@ -60,7 +60,10 @@ impl FromStr for ScopeLimits {
 
 impl ScopeLimits {
     pub fn empty() -> Self {
-        ScopeLimits { ips: IpResourceSet::empty(), asns: AsnSet::empty() }
+        ScopeLimits {
+            ips: IpResourceSet::empty(),
+            asns: AsnSet::empty(),
+        }
     }
     pub fn new(ips: IpResourceSet, asns: AsnSet) -> Self {
         ScopeLimits { ips, asns }
@@ -74,9 +77,13 @@ impl ScopeLimits {
         !self.asns.is_empty()
     }
 
-    pub fn ips(&self) -> &IpResourceSet{ &self.ips }
+    pub fn ips(&self) -> &IpResourceSet {
+        &self.ips
+    }
 
-    pub fn asns(&self) -> &AsnSet { &self.asns }
+    pub fn asns(&self) -> &AsnSet {
+        &self.asns
+    }
 }
 
 //------------ Error --------------------------------------------------------
@@ -100,21 +107,28 @@ pub enum Error {
 }
 
 impl From<IpPrefixError> for Error {
-    fn from(e: IpPrefixError) -> Self { Error::IpPrefixError(e) }
+    fn from(e: IpPrefixError) -> Self {
+        Error::IpPrefixError(e)
+    }
 }
 
 impl From<IpRangeError> for Error {
-    fn from(e: IpRangeError) -> Self { Error::IpRangeError(e) }
+    fn from(e: IpRangeError) -> Self {
+        Error::IpRangeError(e)
+    }
 }
 
 impl From<IpAddressError> for Error {
-    fn from(e: IpAddressError) -> Self { Error::IpAddressError(e) }
+    fn from(e: IpAddressError) -> Self {
+        Error::IpAddressError(e)
+    }
 }
 
 impl From<AsnError> for Error {
-    fn from(e: AsnError) -> Self { Error::AsnError(e) }
+    fn from(e: AsnError) -> Self {
+        Error::AsnError(e)
+    }
 }
-
 
 //------------ Tests --------------------------------------------------------
 
@@ -133,7 +147,7 @@ mod tests {
                 IpResourceSet::from_str("10.0.0.0/8").unwrap(),
                 AsnSet::empty()
             ),
-            set);
+            set
+        );
     }
-
 }

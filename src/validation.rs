@@ -1,9 +1,8 @@
 use crate::announcements::Announcement;
 use crate::ip::IpRange;
 use crate::vrps::ValidatedRoaPayload;
-use std::fmt::Display;
 use std::fmt;
-
+use std::fmt::Display;
 
 //------------ ValidationState ----------------------------------------------
 
@@ -12,7 +11,7 @@ pub enum ValidationState {
     Valid,
     InvalidAsn,
     InvalidLength,
-    NotFound
+    NotFound,
 }
 
 impl Display for ValidationState {
@@ -21,20 +20,19 @@ impl Display for ValidationState {
             ValidationState::Valid => "valid",
             ValidationState::InvalidAsn => "invalid asn",
             ValidationState::InvalidLength => "invalid length",
-            ValidationState::NotFound => "not found"
+            ValidationState::NotFound => "not found",
         };
 
         write!(f, "{}", msg)
     }
 }
 
-
 //------------ ValidatedAnnouncement -----------------------------------------
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ValidatedAnnouncement {
     announcement: Announcement,
-    state: ValidationState
+    state: ValidationState,
 }
 
 impl ValidatedAnnouncement {
@@ -44,7 +42,7 @@ impl ValidatedAnnouncement {
 
     fn derive_state(
         ann: &Announcement,
-        vrps: &[&ValidatedRoaPayload]
+        vrps: &[&ValidatedRoaPayload],
     ) -> ValidationState {
         let mut state = ValidationState::NotFound;
 
@@ -54,15 +52,15 @@ impl ValidatedAnnouncement {
                     if state != ValidationState::InvalidLength {
                         state = ValidationState::InvalidAsn;
                     }
-                    continue
+                    continue;
                 }
 
                 if ann.prefix().length() > vrp.max_length() {
                     state = ValidationState::InvalidLength;
-                    continue
+                    continue;
                 }
 
-                return ValidationState::Valid
+                return ValidationState::Valid;
             }
         }
 
@@ -77,7 +75,7 @@ impl ValidatedAnnouncement {
 
         ValidatedAnnouncement {
             announcement: ann.clone(),
-            state
+            state,
         }
     }
 }
@@ -100,20 +98,23 @@ impl AsRef<IpRange> for ValidatedAnnouncement {
     }
 }
 
-
 //------------ RoaImpact -----------------------------------------------------
 
 pub struct VrpImpact {
-    unseen: bool
+    unseen: bool,
 }
 
 impl VrpImpact {
-    pub fn evaluate(vrp: &ValidatedRoaPayload, anns: &[&Announcement]) -> Self {
+    pub fn evaluate(
+        vrp: &ValidatedRoaPayload,
+        anns: &[&Announcement],
+    ) -> Self {
         for ann in anns {
             if vrp.asn() == ann.asn()
-               && vrp.contains(ann.prefix().as_ref())
-               && vrp.max_length() >= ann.prefix().length() {
-                return VrpImpact { unseen: false }
+                && vrp.contains(ann.prefix().as_ref())
+                && vrp.max_length() >= ann.prefix().length()
+            {
+                return VrpImpact { unseen: false };
             }
         }
         VrpImpact { unseen: true }
@@ -123,7 +124,6 @@ impl VrpImpact {
         self.unseen
     }
 }
-
 
 //------------ Tests --------------------------------------------------------
 
@@ -141,22 +141,19 @@ mod tests {
         Announcement::from_str(s).unwrap()
     }
 
-
     #[test]
     fn should_validate_announcement() {
         let ann = ann("65000, 192.168.0.0/20, 5");
 
-        let vrp_valid   = vrp("AS65000, 192.168.0.0/20, 20");
+        let vrp_valid = vrp("AS65000, 192.168.0.0/20, 20");
         let vrp_inv_len = vrp("AS65000, 192.168.0.0/16, 16");
         let vrp_inv_asn = vrp("AS65001, 192.168.0.0/16, 20");
         let vrp_not_fnd = vrp("AS65000, 192.168.0.0/24, 24");
 
         {
             // not found
-            let validated = ValidatedAnnouncement::create(
-                &ann,
-                &[&vrp_not_fnd]
-            );
+            let validated =
+                ValidatedAnnouncement::create(&ann, &[&vrp_not_fnd]);
             assert_eq!(&ValidationState::NotFound, validated.state());
         }
 
@@ -164,7 +161,7 @@ mod tests {
             // invalid_len
             let validated = ValidatedAnnouncement::create(
                 &ann,
-                &[&vrp_inv_len, &vrp_inv_asn, &vrp_not_fnd]
+                &[&vrp_inv_len, &vrp_inv_asn, &vrp_not_fnd],
             );
             assert_eq!(&ValidationState::InvalidLength, validated.state());
         }
@@ -173,7 +170,7 @@ mod tests {
             // invalid asn
             let validated = ValidatedAnnouncement::create(
                 &ann,
-                &[&vrp_inv_asn, &vrp_not_fnd]
+                &[&vrp_inv_asn, &vrp_not_fnd],
             );
             assert_eq!(&ValidationState::InvalidAsn, validated.state());
         }
@@ -182,7 +179,7 @@ mod tests {
             // valid
             let validated = ValidatedAnnouncement::create(
                 &ann,
-                &[&vrp_inv_len, &vrp_inv_asn, &vrp_not_fnd, &vrp_valid]
+                &[&vrp_inv_len, &vrp_inv_asn, &vrp_not_fnd, &vrp_valid],
             );
             assert_eq!(&ValidationState::Valid, validated.state());
         }
@@ -191,12 +188,14 @@ mod tests {
     #[test]
     fn should_detect_staleness() {
         let vrp_current = vrp("AS65000, 192.168.0.0/20, 20");
-        let vrp_stale   = vrp("AS65000, 192.168.16.0/20, 20");
+        let vrp_stale = vrp("AS65000, 192.168.16.0/20, 20");
 
         let ann1 = ann("65000, 192.168.0.0/20, 5");
         let ann2 = ann("65000, 192.168.16.0/24, 5");
 
-        assert!(!VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]).is_unseen());
+        assert!(
+            !VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]).is_unseen()
+        );
         assert!(VrpImpact::evaluate(&vrp_stale, &[&ann1, &ann2]).is_unseen());
     }
 }

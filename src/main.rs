@@ -6,8 +6,12 @@ extern crate secure_routing_stats;
 use clap::App;
 use clap::Arg;
 use clap::SubCommand;
-use secure_routing_stats::report::resources::{self, ResourceReportOpts, ResourceReporter};
-use secure_routing_stats::report::world::{self, WorldStatsOpts, WorldStatsReporter};
+use secure_routing_stats::report::resources::{
+    self, ResourceReportOpts, ResourceReporter,
+};
+use secure_routing_stats::report::world::{
+    self, WorldStatsOpts, WorldStatsReporter,
+};
 use secure_routing_stats::server;
 use secure_routing_stats::server::ServerOpts;
 use secure_routing_stats::server::StatsApp;
@@ -22,12 +26,16 @@ async fn main() {
         Ok(option) => {
             let res = match option {
                 Options::WorldStats(opts) => {
-                    WorldStatsReporter::execute(&opts).map_err(Error::WorldReportError)
+                    WorldStatsReporter::execute(&opts)
+                        .map_err(Error::WorldReportError)
                 }
                 Options::ResourceStats(opts) => {
-                    ResourceReporter::execute(&opts).map_err(Error::ResourceReportError)
+                    ResourceReporter::execute(&opts)
+                        .map_err(Error::ResourceReportError)
                 }
-                Options::Daemon(opts) => StatsApp::run(&opts).await.map_err(Error::DaemonError),
+                Options::Daemon(opts) => {
+                    StatsApp::run(&opts).await.map_err(Error::DaemonError)
+                }
             };
             match res {
                 Ok(()) => {}
@@ -166,7 +174,8 @@ impl Options {
 
         if let Some(matches) = matches.subcommand_matches("world") {
             Ok(Options::WorldStats(WorldStatsOpts::parse(matches)?))
-        } else if let Some(matches) = matches.subcommand_matches("resources") {
+        } else if let Some(matches) = matches.subcommand_matches("resources")
+        {
             Ok(Options::ResourceStats(ResourceReportOpts::parse(matches)?))
         } else if let Some(matches) = matches.subcommand_matches("daemon") {
             Ok(Options::Daemon(ServerOpts::parse(matches)?))

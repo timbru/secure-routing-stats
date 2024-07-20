@@ -1,6 +1,7 @@
-
-#[macro_use] extern crate derive_more;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate derive_more;
+#[macro_use]
+extern crate serde_derive;
 
 pub mod announcements;
 pub mod delegations;

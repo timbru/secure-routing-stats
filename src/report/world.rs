@@ -45,7 +45,10 @@ impl CountryStat {
     }
 
     fn total(&self) -> usize {
-        self.routes_valid + self.routes_inv_l + self.routes_inv_a + self.routes_not_f
+        self.routes_valid
+            + self.routes_inv_l
+            + self.routes_inv_a
+            + self.routes_not_f
     }
 
     fn covered(&self) -> usize {
@@ -128,9 +131,7 @@ impl Default for CountryStats {
 
 impl CountryStats {
     fn get_cc(&mut self, cc: &str) -> &mut CountryStat {
-        self.stats
-            .entry(cc.to_string())
-            .or_default()
+        self.stats.entry(cc.to_string()).or_default()
     }
 
     /// Adds a ValidatedAnnouncement to the stats for the given country code.
@@ -155,7 +156,13 @@ impl CountryStats {
         for cc in self.stats.keys() {
             let cs = &self.stats[&cc.to_string()];
             if cc != "all" {
-                writeln!(&mut s, "          ['{}', {}],", cc, cs.f_adoption()).unwrap();
+                writeln!(
+                    &mut s,
+                    "          ['{}', {}],",
+                    cc,
+                    cs.f_adoption()
+                )
+                .unwrap();
             }
         }
         s
@@ -169,7 +176,8 @@ impl CountryStats {
         for cc in self.stats.keys() {
             let cs = &self.stats[&cc.to_string()];
             if cc != "all" {
-                writeln!(&mut s, "          ['{}', {}],", cc, cs.f_valid()).unwrap();
+                writeln!(&mut s, "          ['{}', {}],", cc, cs.f_valid())
+                    .unwrap();
             }
         }
         s
@@ -185,7 +193,8 @@ impl CountryStats {
             let cs = &self.stats[&cc.to_string()];
             if cc != "all" {
                 if let Some(quality) = cs.f_quality() {
-                    writeln!(&mut s, "          ['{}', {}],", cc, quality).unwrap();
+                    writeln!(&mut s, "          ['{}', {}],", cc, quality)
+                        .unwrap();
                 }
             }
         }
@@ -199,7 +208,8 @@ impl CountryStats {
             let cs = &self.stats[&cc.to_string()];
             if cc != "all" {
                 if let Some(seen) = cs.f_seen() {
-                    writeln!(&mut s, "          ['{}', {}],", cc, seen).unwrap();
+                    writeln!(&mut s, "          ['{}', {}],", cc, seen)
+                        .unwrap();
                 }
             }
         }
@@ -231,7 +241,12 @@ impl CountryStats {
             let seen = country.stat.f_seen().unwrap_or(0.);
 
             if country.stat.has_adoption() {
-                writeln!(s, "{},{},{},{}", country.cc, coverage, accuracy, seen).unwrap();
+                writeln!(
+                    s,
+                    "{},{},{},{}",
+                    country.cc, coverage, accuracy, seen
+                )
+                .unwrap();
             }
         }
 
@@ -286,7 +301,7 @@ pub struct WorldStatsOpts {
 impl WorldStatsOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
         let mut announcements = vec![];
-        for name in matches.values_of("announcements").unwrap(){
+        for name in matches.values_of("announcements").unwrap() {
             announcements.push(PathBuf::from(name))
         }
 
@@ -358,7 +373,8 @@ impl<'a> WorldStatsReporter<'a> {
 
         for ann in self.announcements.all() {
             let matching_roas = self.vrps.containing(ann.as_ref());
-            let validated = ValidatedAnnouncement::create(ann, &matching_roas);
+            let validated =
+                ValidatedAnnouncement::create(ann, &matching_roas);
             let cc = self.delegations.find_cc(ann.as_ref());
 
             country_stats.add_ann(&validated, cc);
@@ -377,13 +393,15 @@ impl<'a> WorldStatsReporter<'a> {
     }
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
-        let announcements = Announcements::from_ris(&options.announcements).unwrap();
+        let announcements =
+            Announcements::from_ris(&options.announcements).unwrap();
 
         let vrps = Vrps::from_file(&options.vrps).unwrap();
 
         let delegations = IpDelegations::from_file(&options.dels).unwrap();
 
-        let reporter = WorldStatsReporter::new(&announcements, &vrps, &delegations);
+        let reporter =
+            WorldStatsReporter::new(&announcements, &vrps, &delegations);
 
         let stats = reporter.analyse();
 

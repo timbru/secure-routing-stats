@@ -109,7 +109,8 @@ impl<'a> ResourceReporter<'a> {
         let mut anns_res = AnnouncementsResult::default();
         for ann in self.announcements.in_scope(scope) {
             let matching_roas = self.vrps.containing(ann.as_ref());
-            let validated = ValidatedAnnouncement::create(ann, &matching_roas);
+            let validated =
+                ValidatedAnnouncement::create(ann, &matching_roas);
             anns_res.add(validated);
         }
 
@@ -129,18 +130,18 @@ impl<'a> ResourceReporter<'a> {
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
         let announcements = Announcements::from_ris(&options.announcements)?;
         let vrps = Vrps::from_file(&options.vrps)?;
-               
+
         match options.format {
             ReportFormat::Json => {
                 let reporter = ResourceReporter::new(&announcements, &vrps);
                 let res = reporter.analyse(options.scope());
                 println!("{}", serde_json::to_string(&res)?)
-            },
+            }
             ReportFormat::Text => {
                 let reporter = ResourceReporter::new(&announcements, &vrps);
                 let res = reporter.analyse(options.scope());
                 print!("{}", res)
-            },
+            }
             ReportFormat::FullJson => {
                 todo!("full report json")
             }
@@ -150,7 +151,6 @@ impl<'a> ResourceReporter<'a> {
     }
 }
 
-
 //------------ FullResourceReport --------------------------------------------
 
 #[allow(dead_code)] // This is used for serializing to full json output
@@ -158,7 +158,6 @@ pub struct FullResourceReport {
     announcements: Vec<ValidatedAnnouncement>,
     vrps: VisibilityResult,
 }
-
 
 //------------ ResourceReportResult ------------------------------------------
 
