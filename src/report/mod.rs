@@ -22,7 +22,7 @@ impl FromStr for ScopeLimits {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let line = s.replace(" ", "");
+        let line = s.replace(' ', "");
         let mut ips = IpResourceSet::empty();
         let mut asns = AsnSet::empty();
 

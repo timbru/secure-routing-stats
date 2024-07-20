@@ -29,7 +29,7 @@ impl Ord for Asn {
 
 impl PartialOrd for Asn {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.val.partial_cmp(&other.val)
+        Some(self.cmp(other))
     }
 }
 
@@ -153,7 +153,7 @@ impl FromStr for AsnSet {
     type Err = AsnError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let string = s.replace(" ", "");
+        let string = s.replace(' ', "");
         let mut elements = vec![];
         for el in string.split(',') {
             if el.contains('-') {
@@ -311,7 +311,7 @@ impl IpRange {
         // Lower bound is then derived by keeping all bits in common from the
         // min value, and setting the remainder to 0s. This has to match the
         // value for self.min.value itself for this to be a valid prefix
-        let lower_bound = self.min.value & ::std::u128::MAX << (128 - lead_in_common);
+        let lower_bound = self.min.value & u128::MAX << (128 - lead_in_common);
 
         // Upper bound is then derived by keeping all the bits in common from
         // min value, and setting the remainder to 1s. This has to match the
@@ -345,7 +345,7 @@ impl IpRange {
 
 impl fmt::Debug for IpRange {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 
@@ -442,7 +442,7 @@ impl AsRef<IpRange> for IpPrefix {
 
 impl fmt::Debug for IpPrefix {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 
@@ -546,7 +546,7 @@ impl FromStr for IpResourceSet {
     type Err = IpRespourceSetError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let string = s.replace(" ", ""); // rem. whitespace
+        let string = s.replace(' ', ""); // rem. whitespace
         let mut ranges = vec![];
         for s in string.split(',') {
             if s.contains('/') {
@@ -564,7 +564,7 @@ impl FromStr for IpResourceSet {
 
 impl fmt::Debug for IpResourceSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 

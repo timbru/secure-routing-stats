@@ -52,7 +52,7 @@ impl FromStr for Announcement {
 
     /// Expects: "Asn, IpPrefix, peers"
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let line = s.replace(" ", ""); // strip whitespace
+        let line = s.replace(' ', ""); // strip whitespace
         let mut values = line.split(',');
         let asn_str = values.next().ok_or(Error::MissingColumn)?;
         let pfx_str = values.next().ok_or(Error::MissingColumn)?;

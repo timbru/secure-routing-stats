@@ -38,7 +38,7 @@ pub struct ServerOpts {
 impl ServerOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
         let mut announcements = vec![];
-        for name in matches.values_of("announcements").unwrap().into_iter() {
+        for name in matches.values_of("announcements").unwrap() {
             announcements.push(PathBuf::from(name))
         }
 

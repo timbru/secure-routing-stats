@@ -53,8 +53,8 @@ impl FromStr for ValidatedRoaPayload {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let line = s.replace("\"", "");
-        let line = line.replace(" ", "");
+        let line = s.replace('"', "");
+        let line = line.replace(' ', "");
         let mut values = line.split(',');
 
         let asn_str = values.next().ok_or(Error::MissingColumn)?;
@@ -100,8 +100,8 @@ impl Vrps {
 
         for lres in reader.lines() {
             let line = lres.map_err(Error::parse_error)?;
-            let line = line.replace("\"", "");
-            let line = line.replace(" ", "");
+            let line = line.replace('"', "");
+            let line = line.replace(' ', "");
             if line.starts_with("ASN") {
                 continue;
             }

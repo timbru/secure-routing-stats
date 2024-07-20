@@ -130,7 +130,7 @@ impl CountryStats {
     fn get_cc(&mut self, cc: &str) -> &mut CountryStat {
         self.stats
             .entry(cc.to_string())
-            .or_insert_with(CountryStat::default)
+            .or_default()
     }
 
     /// Adds a ValidatedAnnouncement to the stats for the given country code.
@@ -286,7 +286,7 @@ pub struct WorldStatsOpts {
 impl WorldStatsOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
         let mut announcements = vec![];
-        for name in matches.values_of("announcements").unwrap().into_iter() {
+        for name in matches.values_of("announcements").unwrap(){
             announcements.push(PathBuf::from(name))
         }
 
