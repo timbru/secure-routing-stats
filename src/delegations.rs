@@ -1,8 +1,8 @@
 //! Parse delegated extended stats
 use crate::ip::{
-    IpAddress, IpAddressError, IpRange, IpRangeError, IpRangeTree, IpRangeTreeBuilder,
+    IpAddress, IpAddressError, IpRange, IpRangeError, IpRangeTree, IpRangeTreeBuilder,IpPrefix, IpPrefixError
 };
-use ip::{IpPrefix, IpPrefixError};
+
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufRead;

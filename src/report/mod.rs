@@ -1,18 +1,16 @@
-use crate::ip::AsnSet;
-use crate::ip::IpResourceSet;
 use std::str::FromStr;
-use ip::IpAddress;
-use ip::IpRange;
-use ip::AsnRange;
-use ip::Asn;
-use ip::IpRangeError;
-use ip::IpAddressError;
-use ip::AsnError;
-use ip::IpPrefix;
-use ip::IpPrefixError;
+
+use crate::ip::{
+    AsnSet, IpResourceSet, IpAddress, IpRange, AsnRange, Asn, IpRangeError, IpAddressError, AsnError, IpPrefix, IpPrefixError
+};
 
 pub mod resources;
 pub mod world;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ScopeQuery {
+    pub scope: String
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ScopeLimits {
@@ -59,7 +57,6 @@ impl FromStr for ScopeLimits {
         Ok(ScopeLimits { ips, asns })
     }
 }
-
 
 impl ScopeLimits {
     pub fn empty() -> Self {

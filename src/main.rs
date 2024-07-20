@@ -12,7 +12,8 @@ use secure_routing_stats::server;
 use secure_routing_stats::server::ServerOpts;
 use secure_routing_stats::server::StatsApp;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     match Options::create() {
         Err(e) => {
             eprintln!("{}", e);
@@ -26,7 +27,7 @@ fn main() {
                 Options::ResourceStats(opts) => {
                     ResourceReporter::execute(&opts).map_err(Error::ResourceReportError)
                 }
-                Options::Daemon(opts) => StatsApp::run(&opts).map_err(Error::DaemonError),
+                Options::Daemon(opts) => StatsApp::run(&opts).await.map_err(Error::DaemonError),
             };
             match res {
                 Ok(()) => {}
