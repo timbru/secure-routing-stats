@@ -10,6 +10,7 @@ use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
 use crate::report::ScopeLimits;
+use crate::validation::ValidatedAnnouncement;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufRead;
@@ -67,6 +68,14 @@ impl AsRef<IpRange> for Announcement {
     fn as_ref(&self) -> &IpRange {
         self.prefix.as_ref()
     }
+}
+
+//------------ ValidatedAnnouncements ----------------------------------------
+
+#[derive(Debug)]
+#[allow(dead_code)] // This is used for serializing to full json output
+pub struct ValidatedAnnouncements {
+    tree: IpRangeTree<ValidatedAnnouncement>,
 }
 
 //------------ Announcements -------------------------------------------------

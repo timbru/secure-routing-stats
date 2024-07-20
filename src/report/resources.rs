@@ -62,9 +62,10 @@ impl ResourceReportOpts {
                 match format {
                     "json" => ReportFormat::Json,
                     "text" => ReportFormat::Text,
+                    "fulljson" => ReportFormat::FullJson,
                     f => {
                         return Err(Error::WithMessage(format!(
-                            "Unsupported format: {}. Supported are: json|text",
+                            "Unsupported format: {}. Supported are: json|text|fulljson",
                             f
                         )))
                     }
@@ -86,6 +87,7 @@ impl ResourceReportOpts {
 pub enum ReportFormat {
     Json,
     Text,
+    FullJson,
 }
 
 //------------ ResourceReporter ---------------------------------------------
@@ -139,11 +141,24 @@ impl<'a> ResourceReporter<'a> {
                 let res = reporter.analyse(options.scope());
                 print!("{}", res)
             },
+            ReportFormat::FullJson => {
+                todo!("full report json")
+            }
         }
 
         Ok(())
     }
 }
+
+
+//------------ FullResourceReport --------------------------------------------
+
+#[allow(dead_code)] // This is used for serializing to full json output
+pub struct FullResourceReport {
+    announcements: Vec<ValidatedAnnouncement>,
+    vrps: VisibilityResult,
+}
+
 
 //------------ ResourceReportResult ------------------------------------------
 
