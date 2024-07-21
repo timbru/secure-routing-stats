@@ -53,6 +53,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             <option value="coverage">Coverage</option>
             <option value="accuracy">Accuracy</option>
             <option value="seen">Seen</option>
+            <option value="too_permissive">Too Permissive</option>
+            <option value="unseen">Stale</option>
           </select>
         </form>
         <div id="map"></div>
@@ -61,7 +63,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <div class="col">
         <form class="form-inline" v-on:submit.prevent="analyse">
           <label class="my-1 mr-2" for="scope">IP or ASN scope</label>
-          <input type="text" class="form-control mr-2" id="scope" placeholder="0.0.0.0/8" v-model="scope" v-on:keyup.enter="analyse">
+          <input type="text" class="form-control mr-2" id="scope" placeholder="0.0.0.0/8" v-model="scope"
+            v-on:keyup.enter="analyse">
           <button type="button" class="btn btn-primary" @click="analyse" :disabled="scope==''">Analyse this!</button>
         </form>
 
@@ -76,15 +79,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
               <tr>
                 <th scope="row">Invalid ASN</th>
                 <td class="text-center">
-                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">[[results.announcements.invalid_asn]]</a>
+                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0"
+                    @click="showInvalid">[[results.announcements.invalid_asn]]</a>
                   <span v-if="results.announcements.invalids.length == 0">[[results.announcements.invalid_asn]]</span>
                 </td>
               </tr>
               <tr>
                 <th scope="row">Invalid Length</th>
                 <td class="text-center">
-                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0" @click="showInvalid">[[results.announcements.invalid_length]]</a>
-                  <span v-if="results.announcements.invalids.length == 0">[[results.announcements.invalid_length]]</span>
+                  <a href="javascript:void(0)" v-if="results.announcements.invalids.length > 0"
+                    @click="showInvalid">[[results.announcements.invalid_length]]</a>
+                  <span
+                    v-if="results.announcements.invalids.length == 0">[[results.announcements.invalid_length]]</span>
                 </td>
               </tr>
               <tr>
@@ -102,17 +108,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                 <td class="text-center">[[ results.vrps.total ]]</td>
               </tr>
               <tr>
-                <th scope="row">Unseen</th>
+                <th scope="row">Seen</th>
                 <td class="text-center">
-                  <a href="javascript:void(0)" v-if="results.vrps.unseen.length > 0" @click="showUnseen">[[results.vrps.unseen.length]]</a>
-                  <span v-if="results.vrps.unseen.length == 0">[[results.vrps.unseen.length]]</span>
+                  <a href="javascript:void(0)" v-if="results.vrps.seen.length > 0"
+                    @click="showSeen">[[results.vrps.seen.length]]</a>
+                  <span v-if="results.vrps.seen.length == 0">[[results.vrps.seen.length]]</span>
                 </td>
               </tr>
             </tbody>
           </table>
 
           <span id="rpkiInvalid" class="d-none">
-            <table class="table table-striped table-hover table-borderless" v-if="results.announcements && results.announcements.invalids.length > 0">
+            <table class="table table-striped table-hover table-borderless"
+              v-if="results.announcements && results.announcements.invalids.length > 0">
               <thead>
                 <tr>
                   <th scope="col">ASN</th>
@@ -129,8 +137,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
               </tbody>
             </table>
           </span>
-          <span id="rpkiUnseen" class="d-none">
-            <table class="table table-striped table-hover  table-borderless" v-if="results.vrps && results.vrps.unseen.length > 0">
+          <span id="rpkiSeen" class="d-none">
+            <table class="table table-striped table-hover  table-borderless"
+              v-if="results.vrps && results.vrps.seen.length > 0">
               <thead>
                 <tr>
                   <th scope="col">ASN</th>
@@ -139,7 +148,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="lost of results.vrps.unseen">
+                <tr v-for="lost of results.vrps.seen">
                   <th scope="row">[[lost.asn]]</th>
                   <td>[[lost.prefix]]</td>
                   <td>[[lost.max_length]]</td>
@@ -186,20 +195,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <script type="text/javascript">
     var rpkiWorldCache = null;
 
-    var rpkiCreateMap = function(column) {
+    var rpkiCreateMap = function (column) {
       d3.select('#map').select('svg').remove();
       var map = d3.geomap.choropleth()
         .geofile('/ui/json/countries_with_iso2.json')
         .colors(colorbrewer.Greens[9])
         .column(column)
-        .format(function(d) {
+        .format(function (d) {
           return d3.format(',.1f')(d) + '%';
         })
         .legend(true)
         .unitId('iso2');
 
       if (!rpkiWorldCache) {
-        d3.csv('/rpki-stats-api/world.csv', function(error, data) {
+        d3.csv('/rpki-stats-api/world.csv', function (error, data) {
           map.draw(d3.select('#map').datum(data));
           rpkiWorldCache = data;
         });
@@ -211,7 +220,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     var app = new Vue({
       el: '#vuefied',
-      delimiters: ['[[',']]'],
+      delimiters: ['[[', ']]'],
       data: {
         map: null,
         mapColumn: 'coverage',
@@ -221,11 +230,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         modalContent: ''
       },
       computed: {
-        mapColumnDetails: function() {
+        mapColumnDetails: function () {
           var mapping = {
             'coverage': 'The fraction of announced IPv4 and IPv6 prefixes in BGP covered by RPKI ROAs.',
             'accuracy': 'The fraction of covered BGP announcements which are RPKI valid.',
-            'seen': 'The fraction of all Verified ROA Payloads which are currently seen in BGP.'
+            'seen': 'The fraction of VRPs which are currently *fully* seen in BGP.',
+            'too_permissive': 'The fraction of VRPs which are currently too permissive.',
+            'unseen': 'The fraction of VRPs which are not seen, and are likely stale.'
           }
           return mapping[this.mapColumn];
         }
@@ -234,9 +245,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         var self = this;
         this.map = rpkiCreateMap(self.mapColumn);
         var drawTimeout = -1;
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', function () {
           window.clearTimeout(drawTimeout);
-          drawTimeout = window.setTimeout(function() {
+          drawTimeout = window.setTimeout(function () {
             self.map = rpkiCreateMap(self.mapColumn);
           }, 200);
         });
@@ -247,34 +258,39 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         }
       },
       methods: {
-        analyse: function() {
+        analyse: function () {
           var self = this;
           if (this.scope) {
             axios.get('/rpki-stats-api/details?scope=' + encodeURIComponent(this.scope))
-              .then(function(response) {
+              .then(function (response) {
                 self.results = response.data;
               })
-              .catch(function(error) {
+              .catch(function (error) {
                 self.results = error;
               });
           }
         },
-        updateMap: function() {
+        updateMap: function () {
           this.map.column(this.mapColumn).update();
         },
-        showRawResults: function() {
+        showRawResults: function () {
           this.modalTitle = this.scope + ' raw results';
           this.modalContent = '<pre>' + JSON.stringify(this.results, null, 2) + '</pre>';
           $('#detailsModal').modal('show');
         },
-        showInvalid: function() {
+        showInvalid: function () {
           this.modalTitle = this.scope + ' invalid ROAs';
           this.modalContent = document.getElementById('rpkiInvalid').innerHTML;
           $('#detailsModal').modal('show');
         },
-        showUnseen: function() {
-          this.modalTitle = this.scope + ' unseen verified ROA payloads';
-          this.modalContent = document.getElementById('rpkiUnseen').innerHTML;
+        showSeen: function () {
+          this.modalTitle = this.scope + ' seen verified ROA payloads';
+          this.modalContent = document.getElementById('rpkiSeen').innerHTML;
+          $('#detailsModal').modal('show');
+        },
+        showTooPermissive: function () {
+          this.modalTitle = this.scope + ' too permissive verified ROA payloads';
+          this.modalContent = document.getElementById('rpkiTooPermissive').innerHTML;
           $('#detailsModal').modal('show');
         }
       }

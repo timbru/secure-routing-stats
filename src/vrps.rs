@@ -16,6 +16,11 @@ use std::num::ParseIntError;
 use std::path::Path;
 use std::str::FromStr;
 
+#[cfg(test)]
+pub fn vrp(s: &str) -> ValidatedRoaPayload {
+    ValidatedRoaPayload::from_str(s).unwrap()
+}
+
 //------------ ValidatedRoaPrefix --------------------------------------------
 
 #[derive(Clone, Debug, Serialize)]
@@ -29,11 +34,32 @@ impl ValidatedRoaPayload {
     pub fn asn(&self) -> Asn {
         self.asn
     }
+
     pub fn prefix(&self) -> &IpPrefix {
         &self.prefix
     }
+
     pub fn max_length(&self) -> u8 {
         self.max_length
+    }
+
+    /// Return the number of most specific allowed
+    /// announcements that would be expected for this
+    /// VRP to not be "too specific", i.e. we expect
+    /// that all of these announcements are seen.
+    ///
+    /// We do not care however in case all most specific
+    /// announcements are seen, but not all less specific
+    /// but still allowed annoucements are seen.
+    pub fn nr_most_specific_announcements(&self) -> u128 {
+        let nr_bytes = self.max_length - self.prefix.length();
+        if nr_bytes >= 128 {
+            // this should never happen, but there may be dragons in
+            // the input.
+            u128::MAX
+        } else {
+            1_u128 << nr_bytes
+        }
     }
 }
 
@@ -198,5 +224,19 @@ mod tests {
     fn should_read_from_file() {
         let path = PathBuf::from("test/20190304/vrps.csv");
         Vrps::from_file(&path).unwrap();
+    }
+
+    #[test]
+    fn should_detect_number_of_most_specific_announcements() {
+        assert_eq!(
+            vrp("AS65000, 192.168.0.0/20, 20")
+                .nr_most_specific_announcements(),
+            1
+        );
+        assert_eq!(
+            vrp("AS65000, 192.168.0.0/20, 24")
+                .nr_most_specific_announcements(),
+            16
+        );
     }
 }

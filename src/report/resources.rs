@@ -238,7 +238,7 @@ pub struct VisibilityResult {
 impl VisibilityResult {
     pub fn add(&mut self, vrp: &ValidatedRoaPayload, impact: &VrpImpact) {
         self.total += 1;
-        if impact.is_unseen() {
+        if impact == &VrpImpact::Unseen {
             self.unseen.push(vrp.clone())
         }
     }
