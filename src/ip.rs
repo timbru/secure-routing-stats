@@ -416,6 +416,10 @@ impl IpPrefix {
     pub fn length(&self) -> u8 {
         self.length
     }
+
+    pub fn nr_of_ips(&self) -> u128 {
+        self.range.max.value - self.range.min.value + 1
+    }
 }
 
 impl FromStr for IpPrefix {
@@ -442,8 +446,14 @@ impl FromStr for IpPrefix {
             return Err(IpPrefixError::InvalidPrefixLength);
         }
 
-        let max_val = min.value | ((1u128 << (128 - full_length)) - 1);
-        let max = IpAddress::new(max_val);
+        // Logic taken from the rpki.rs implementation.
+        let max_value = if full_length >= 128 {
+            min.value
+        } else {
+            min.value | (u128::MAX >> full_length)
+        };
+
+        let max = IpAddress::new(max_value);
 
         let range = IpRange { min, max };
 
@@ -1061,5 +1071,29 @@ mod tests {
         let search = IpRange::from_str("10.0.0.0-10.0.0.2").unwrap();
         let matches = tree.matching_or_less_specific(&search);
         assert_eq!(3, matches.len());
+    }
+
+    #[test]
+    fn test_ip_prefix_length() {
+        assert_eq!(
+            IpPrefix::from_str("192.168.0.0/16").unwrap().nr_of_ips(),
+            65536
+        );
+        assert_eq!(
+            IpPrefix::from_str("192.168.0.0/24").unwrap().nr_of_ips(),
+            256
+        );
+        assert_eq!(
+            IpPrefix::from_str("192.168.0.0/32").unwrap().nr_of_ips(),
+            1
+        );
+        assert_eq!(
+            IpPrefix::from_str("2001:db8::/120").unwrap().nr_of_ips(),
+            256
+        );
+        assert_eq!(
+            IpPrefix::from_str("2001:db8::/128").unwrap().nr_of_ips(),
+            1
+        );
     }
 }
