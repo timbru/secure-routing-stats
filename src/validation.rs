@@ -100,30 +100,49 @@ impl AsRef<IpRange> for ValidatedAnnouncement {
 
 //------------ RoaImpact -----------------------------------------------------
 
+/// See https://krill.docs.nlnetlabs.nl/en/stable/manage-roas.html
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VrpImpact {
+    /// All authorised announcements are seen.
     Seen,
-    Unseen
+    /// No authorised announcements are seen. This may be
+    /// stale, or a VRP for a backup route.
+    Unseen,
+    /// Authorises some announcements that are seen, but
+    /// is too permissive: allows more announcements that
+    /// are not all seen.
+    TooPermissive,
 }
 
 impl VrpImpact {
+    /// See https://krill.docs.nlnetlabs.nl/en/stable/manage-roas.html
     pub fn evaluate(
         vrp: &ValidatedRoaPayload,
         anns: &[&Announcement],
     ) -> Self {
+        let mut seen = false;
+        let mut most_specific_seen = 0;
+
         for ann in anns {
             if vrp.asn() == ann.asn()
-                && vrp.contains(ann.prefix().as_ref())
                 && vrp.max_length() >= ann.prefix().length()
+                && vrp.contains(ann.prefix().as_ref())
             {
-                return VrpImpact::Seen;
+                seen = true;
+                if vrp.max_length() == ann.prefix().length() {
+                    most_specific_seen += 1;
+                }
             }
         }
-        VrpImpact::Unseen
-    }
-
-    pub fn is_unseen(&self) -> bool {
-        self == &VrpImpact::Unseen
+        if seen {
+            if most_specific_seen == vrp.nr_most_specific_announcements() {
+                VrpImpact::Seen
+            } else {
+                VrpImpact::TooPermissive
+            }
+        } else {
+            VrpImpact::Unseen
+        }
     }
 }
 
@@ -133,11 +152,8 @@ impl VrpImpact {
 mod tests {
 
     use super::*;
+    use crate::vrps::vrp;
     use std::str::FromStr;
-
-    fn vrp(s: &str) -> ValidatedRoaPayload {
-        ValidatedRoaPayload::from_str(s).unwrap()
-    }
 
     fn ann(s: &str) -> Announcement {
         Announcement::from_str(s).unwrap()
@@ -195,9 +211,35 @@ mod tests {
         let ann1 = ann("65000, 192.168.0.0/20, 5");
         let ann2 = ann("65000, 192.168.16.0/24, 5");
 
-        assert!(
-            !VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]).is_unseen()
+        assert_eq!(
+            VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]),
+            VrpImpact::Seen,
         );
-        assert!(VrpImpact::evaluate(&vrp_stale, &[&ann1, &ann2]).is_unseen());
+        assert_eq!(
+            VrpImpact::evaluate(&vrp_stale, &[&ann1, &ann2]),
+            VrpImpact::Unseen,
+        );
+    }
+
+    #[test]
+    fn should_detect_too_permissive() {
+        // See: https://krill.docs.nlnetlabs.nl/en/stable/manage-roas.html
+
+        let vrp_current = vrp("AS65000, 192.168.0.0/20, 20");
+        // Allows all /24s, but there are not all seen.
+        let vrp_too_permissive = vrp("AS65000, 192.168.16.0/20, 24");
+
+        let ann1 = ann("65000, 192.168.0.0/20, 5");
+        let ann2 = ann("65000, 192.168.16.0/24, 5");
+
+        assert_eq!(
+            VrpImpact::evaluate(&vrp_current, &[&ann1, &ann2]),
+            VrpImpact::Seen
+        );
+
+        assert_eq!(
+            VrpImpact::evaluate(&vrp_too_permissive, &[&ann1, &ann2]),
+            VrpImpact::TooPermissive
+        );
     }
 }

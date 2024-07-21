@@ -24,6 +24,7 @@ pub struct CountryStat {
     routes_not_f: usize,
     vrps_seen: usize,
     vrps_unseen: usize,
+    vrps_too_permisive: usize,
 }
 
 impl CountryStat {
@@ -37,10 +38,10 @@ impl CountryStat {
     }
 
     pub fn add_impact(&mut self, impact: &VrpImpact) {
-        if impact.is_unseen() {
-            self.vrps_unseen += 1;
-        } else {
-            self.vrps_seen += 1;
+        match impact {
+            VrpImpact::Seen => self.vrps_seen += 1,
+            VrpImpact::Unseen => self.vrps_unseen += 1,
+            VrpImpact::TooPermissive => self.vrps_too_permisive += 1,
         }
     }
 
@@ -83,10 +84,32 @@ impl CountryStat {
         }
     }
 
+    fn total_vrps(&self) -> usize {
+        self.vrps_seen + self.vrps_unseen + self.vrps_too_permisive
+    }
+
     pub fn f_seen(&self) -> Option<f32> {
-        let total = self.vrps_seen + self.vrps_unseen;
+        let total = self.total_vrps();
         if total > 0 {
             Some((self.vrps_seen * 10000 / total) as f32 / 100.)
+        } else {
+            None
+        }
+    }
+
+    pub fn f_unseen(&self) -> Option<f32> {
+        let total = self.total_vrps();
+        if total > 0 {
+            Some((self.vrps_unseen * 10000 / total) as f32 / 100.)
+        } else {
+            None
+        }
+    }
+
+    pub fn f_too_permissive(&self) -> Option<f32> {
+        let total = self.total_vrps();
+        if total > 0 {
+            Some((self.vrps_too_permisive * 10000 / total) as f32 / 100.)
         } else {
             None
         }
@@ -102,13 +125,15 @@ Invalid Length: {}, \
 Invalid ASN: {}, \
 Not Found: {}, \
 VRPS seen: {}, \
-VRPS unseen: {}",
+VRPS unseen: {}, \
+VRPS too permissive: {}",
             self.routes_valid,
             self.routes_inv_l,
             self.routes_inv_a,
             self.routes_not_f,
             self.vrps_seen,
-            self.vrps_unseen
+            self.vrps_unseen,
+            self.vrps_too_permisive,
         )
     }
 }
@@ -231,7 +256,8 @@ impl CountryStats {
 
     pub fn to_csv(&self) -> String {
         let mut s = String::new();
-        writeln!(s, "iso2,coverage,accuracy,seen").unwrap();
+        writeln!(s, "iso2,coverage,accuracy,seen,too_permissive,unseen")
+            .unwrap();
 
         let countries = self.get_sorted_countries();
 
@@ -239,12 +265,20 @@ impl CountryStats {
             let coverage = country.stat.f_adoption();
             let accuracy = country.stat.f_quality().unwrap_or(0.);
             let seen = country.stat.f_seen().unwrap_or(0.);
+            let too_permissive =
+                country.stat.f_too_permissive().unwrap_or(0.);
+            let unseen = country.stat.f_unseen().unwrap_or(0.);
 
             if country.stat.has_adoption() {
                 writeln!(
                     s,
-                    "{},{},{},{}",
-                    country.cc, coverage, accuracy, seen
+                    "{},{},{},{},{},{}",
+                    country.cc,
+                    coverage,
+                    accuracy,
+                    seen,
+                    too_permissive,
+                    unseen
                 )
                 .unwrap();
             }
