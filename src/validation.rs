@@ -100,8 +100,10 @@ impl AsRef<IpRange> for ValidatedAnnouncement {
 
 //------------ RoaImpact -----------------------------------------------------
 
-pub struct VrpImpact {
-    unseen: bool,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum VrpImpact {
+    Seen,
+    Unseen
 }
 
 impl VrpImpact {
@@ -114,14 +116,14 @@ impl VrpImpact {
                 && vrp.contains(ann.prefix().as_ref())
                 && vrp.max_length() >= ann.prefix().length()
             {
-                return VrpImpact { unseen: false };
+                return VrpImpact::Seen;
             }
         }
-        VrpImpact { unseen: true }
+        VrpImpact::Unseen
     }
 
     pub fn is_unseen(&self) -> bool {
-        self.unseen
+        self == &VrpImpact::Unseen
     }
 }
 
