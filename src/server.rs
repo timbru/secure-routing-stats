@@ -92,12 +92,6 @@ impl StatsApp {
             .nest_service("/ui", ServeDir::new("ui"))
             .route(
                 "/rpki-stats-api/details",
-                // get (
-                //     {
-                //     let state = Arc::clone(&state);
-                //         move || Self::details (state)
-                //     }
-                // )
                 get(Self::details).with_state(state.clone()),
             )
             .route(
@@ -121,17 +115,6 @@ impl StatsApp {
             .unwrap();
         axum::serve(listener, app).await.unwrap();
 
-        // let server = server::new(move || Self::new(stats_server.clone()));
-
-        // let address = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 8080);
-
-        // server
-        //     .bind(address)
-        //     .unwrap_or_else(|_| panic!("Cannot bind to: {}", address))
-        //     .shutdown_timeout(0)
-        //     .run();
-
-        // Ok(())
         Ok(())
     }
 
