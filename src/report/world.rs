@@ -241,7 +241,7 @@ impl CountryStats {
         s
     }
 
-    fn get_sorted_countries(&self) -> Vec<CountryStatWithCode> {
+    fn get_sorted_countries(&self) -> Vec<CountryStatWithCode<'_>> {
         let mut countries: Vec<CountryStatWithCode> = vec![];
 
         for (cc, stat) in self.stats.iter() {
@@ -405,6 +405,13 @@ impl<'a> WorldStatsReporter<'a> {
     pub fn analyse(&self) -> CountryStats {
         let mut country_stats = CountryStats::default();
 
+        let now = std::time::SystemTime::now();
+
+        let nr_anns = self.announcements.all().len();
+        let nr_vrps = self.vrps.all().len();
+
+        eprint!("Start.....");
+
         for ann in self.announcements.all() {
             let matching_roas = self.vrps.containing(ann.as_ref());
             let validated =
@@ -422,6 +429,13 @@ impl<'a> WorldStatsReporter<'a> {
 
             country_stats.add_impact(&impact, cc);
         }
+
+        eprintln!(
+            "done ({} ms {} anns {} vprs)",
+            now.elapsed().unwrap().as_millis(),
+            nr_anns,
+            nr_vrps
+        );
 
         country_stats
     }
