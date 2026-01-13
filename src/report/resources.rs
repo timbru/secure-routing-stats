@@ -1,7 +1,7 @@
 use crate::announcements;
 use crate::announcements::Announcements;
-use crate::ip::AsnError;
-use crate::ip::AsnSet;
+use crate::asn::AsnError;
+use crate::asn::AsnSet;
 use crate::ip::IpResourceSet;
 use crate::ip::IpRespourceSetError;
 use crate::report::ScopeLimits;

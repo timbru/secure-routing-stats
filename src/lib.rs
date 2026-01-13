@@ -4,6 +4,7 @@ extern crate derive_more;
 extern crate serde_derive;
 
 pub mod announcements;
+pub mod asn;
 pub mod delegations;
 pub mod ip;
 pub mod report;

@@ -1,8 +1,11 @@
 use std::str::FromStr;
 
-use crate::ip::{
-    Asn, AsnError, AsnRange, AsnSet, IpAddress, IpAddressError, IpPrefix,
-    IpPrefixError, IpRange, IpRangeError, IpResourceSet,
+use crate::{
+    asn::{Asn, AsnError, AsnRange, AsnSet},
+    ip::{
+        IpAddress, IpAddressError, IpPrefix, IpPrefixError, IpRange,
+        IpRangeError, IpResourceSet,
+    },
 };
 
 pub mod resources;
