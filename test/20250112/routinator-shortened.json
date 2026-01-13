@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "generated": 1768224578,
+    "generatedTime": "2026-01-12T13:29:38Z"
+  },
+  "roas": [
+    { "asn": "AS13335", "prefix": "1.0.0.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS18144", "prefix": "1.0.64.0/18", "maxLength": 18, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.128.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.129.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.130.0/23", "maxLength": 23, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.132.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.133.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.134.0/23", "maxLength": 23, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.136.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.137.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.138.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS23969", "prefix": "1.0.139.0/24", "maxLength": 24, "ta": "apnic" }
+  ],
+  "routerKeys": [
+    { "asn": "AS15562", "SKI": "5D4250E2D81D4448D8A29EFCE91D29FF075EC9E2", "routerPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgFcjQ_g__LAQerAH2Mpp-GucoDAGBbhIqD33wNPsXxnAGb-mtZ7XQrVO9DQ6UlAShtig5-QfEKpTtFgiqfiAFQ", "ta": "ripe" },
+    { "asn": "AS15562", "SKI": "BE889B55D0B737397D75C49F485B858FA98AD11F", "routerPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4FxJr0n2bux1uX1Evl-QWwZYvIadPjLuFX2mxqKuAGUhKnr7VLLDgrE--l9p5eH2kWTNVAN22FUU3db_RKpE2w", "ta": "ripe" }
+  ],
+  "aspas": [
+{ "customer": "AS216333", "providers": ["AS174", "AS6939", "AS50673", "AS50917"], "ta": "ripe" },
+    { "customer": "AS216375", "providers": ["AS8849", "AS34927", "AS44817", "AS135659"], "ta": "ripe" },
+    { "customer": "AS216426", "providers": ["AS206276"], "ta": "ripe" },
+    { "customer": "AS216441", "providers": ["AS58299", "AS59645"], "ta": "ripe" },
+    { "customer": "AS262365", "providers": ["AS2914", "AS52927", "AS53181", "AS268696"], "ta": "lacnic" },
+    { "customer": "AS262485", "providers": ["AS52468", "AS263047"], "ta": "lacnic" },
+    { "customer": "AS262486", "providers": ["AS4230", "AS20121", "AS26162", "AS53237", "AS263450", "AS264387"], "ta": "lacnic" },
+    { "customer": "AS263047", "providers": ["AS3356", "AS7738", "AS22356"], "ta": "lacnic" },
+    { "customer": "AS263326", "providers": ["AS22381", "AS28260", "AS52863", "AS265389"], "ta": "lacnic" },
+    { "customer": "AS263390", "providers": ["AS2914", "AS52772", "AS263009"], "ta": "lacnic" },
+    { "customer": "AS263424", "providers": ["AS3356", "AS28202", "AS28306", "AS61712", "AS263432"], "ta": "lacnic" },
+    { "customer": "AS263515", "providers": ["AS264011", "AS264539", "AS264595"], "ta": "lacnic" },
+    { "customer": "AS401038", "providers": ["AS52210"], "ta": "arin" },
+    { "customer": "AS401507", "providers": ["AS16909", "AS212477"], "ta": "arin" },
+    { "customer": "AS401519", "providers": ["AS30581", "AS47778", "AS397958"], "ta": "arin" }
+  ]
+}
