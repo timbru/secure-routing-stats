@@ -214,8 +214,8 @@ mod tests {
 
     #[test]
     fn should_read_from_file() {
-        let v4_path = PathBuf::from("test/20190304/riswhoisdump.IPv4");
-        let v6_path = PathBuf::from("test/20190304/riswhoisdump.IPv6");
+        let v4_path = PathBuf::from("test/20250112/riswhoisdump.IPv4");
+        let v6_path = PathBuf::from("test/20250112/riswhoisdump.IPv6");
         let paths = vec![v4_path, v6_path];
 
         let announcements = Announcements::from_ris(&paths).unwrap();

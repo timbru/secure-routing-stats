@@ -20,13 +20,13 @@ use crate::report::ScopeQuery;
 use crate::report::{
     resources::ResourceReporter, world::WorldStatsReporter, ScopeLimits,
 };
-use crate::vrps;
-use crate::vrps::Vrps;
+use crate::rpki_stats;
+use crate::rpki_stats::RpkiStats;
 
 pub struct ServerOpts {
     announcements: Vec<PathBuf>,
-    vrps: PathBuf,
-    dels: PathBuf,
+    rpki_stats: PathBuf,
+    delegations: PathBuf,
 }
 
 impl ServerOpts {
@@ -36,16 +36,16 @@ impl ServerOpts {
             announcements.push(PathBuf::from(name))
         }
 
-        let vrps_file = matches.value_of("vrps").unwrap();
-        let vrps = PathBuf::from(vrps_file);
+        let rpki_stats_file = matches.value_of("rpki").unwrap();
+        let rpki_stats = PathBuf::from(rpki_stats_file);
 
-        let dels_file = matches.value_of("delegations").unwrap();
-        let dels = PathBuf::from(dels_file);
+        let delegations_file = matches.value_of("delegations").unwrap();
+        let delegations = PathBuf::from(delegations_file);
 
         Ok(ServerOpts {
             announcements,
-            vrps,
-            dels,
+            rpki_stats,
+            delegations,
         })
     }
 }
@@ -53,7 +53,7 @@ impl ServerOpts {
 #[derive(Debug)]
 pub struct Sources {
     announcements: Announcements,
-    vrps: Vrps,
+    rpki_stats: RpkiStats,
     delegations: IpDelegations,
 }
 
@@ -65,12 +65,12 @@ pub struct StatsServer {
 impl StatsServer {
     fn create(opts: &ServerOpts) -> Result<Self, Error> {
         let announcements = Announcements::from_ris(&opts.announcements)?;
-        let vrps = Vrps::from_file(&opts.vrps)?;
-        let delegations = IpDelegations::from_file(&opts.dels)?;
+        let rpki_stats = RpkiStats::from_routinator_file(&opts.rpki_stats)?;
+        let delegations = IpDelegations::from_file(&opts.delegations)?;
 
         let sources = Sources {
             announcements,
-            vrps,
+            rpki_stats,
             delegations,
         };
 
@@ -127,7 +127,7 @@ impl StatsApp {
 
         let reporter = ResourceReporter::new(
             &state.sources.announcements,
-            &state.sources.vrps,
+            state.sources.rpki_stats.vrps(),
         );
 
         Json(reporter.analyse(&limits))
@@ -136,7 +136,7 @@ impl StatsApp {
     async fn world_json(state: Arc<StatsServer>) -> Json<CountryStats> {
         let reporter = WorldStatsReporter::new(
             &state.sources.announcements,
-            &state.sources.vrps,
+            &state.sources.rpki_stats,
             &state.sources.delegations,
         );
 
@@ -146,7 +146,7 @@ impl StatsApp {
     async fn world_csv(state: Arc<StatsServer>) -> String {
         let reporter = WorldStatsReporter::new(
             &state.sources.announcements,
-            &state.sources.vrps,
+            &state.sources.rpki_stats,
             &state.sources.delegations,
         );
 
@@ -164,7 +164,7 @@ pub enum Error {
     AnnouncementsError(announcements::Error),
 
     #[display(fmt = "{}", _0)]
-    VrpsError(vrps::Error),
+    RpkiStatsError(rpki_stats::Error),
 
     #[display(fmt = "{}", _0)]
     DelegationsError(delegations::Error),
@@ -185,9 +185,9 @@ impl From<announcements::Error> for Error {
     }
 }
 
-impl From<vrps::Error> for Error {
-    fn from(e: vrps::Error) -> Self {
-        Error::VrpsError(e)
+impl From<rpki_stats::Error> for Error {
+    fn from(e: rpki_stats::Error) -> Self {
+        Error::RpkiStatsError(e)
     }
 }
 

@@ -270,13 +270,7 @@ mod tests {
 
     #[test]
     fn should_read_from_file() {
-        let path = PathBuf::from("test/20190304/delegated-extended.txt");
-        IpDelegations::from_file(&path).unwrap();
-    }
-
-    #[test]
-    fn read_csv() {
-        let path = PathBuf::from("test/nrostats-20190101-v4.csv");
+        let path = PathBuf::from("test/20250112/delegated-extended.txt");
         IpDelegations::from_file(&path).unwrap();
     }
 }

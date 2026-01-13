@@ -2,10 +2,10 @@
 use crate::announcements::Announcements;
 use crate::delegations::IpDelegations;
 use crate::ip::IpRespourceSetError;
+use crate::rpki_stats::RpkiStats;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
-use crate::vrps::Vrps;
 use clap::ArgMatches;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -327,8 +327,8 @@ impl<'a> PartialOrd for CountryStatWithCode<'a> {
 /// Options for the WorldStatsReport
 pub struct WorldStatsOpts {
     announcements: Vec<PathBuf>,
-    vrps: PathBuf,
-    dels: PathBuf,
+    rpki_stats: PathBuf,
+    delegations: PathBuf,
     format: WorldStatsFormat,
 }
 
@@ -339,11 +339,11 @@ impl WorldStatsOpts {
             announcements.push(PathBuf::from(name))
         }
 
-        let vrps_file = matches.value_of("vrps").unwrap();
-        let vrps = PathBuf::from(vrps_file);
+        let rpki_stats_file = matches.value_of("rpki").unwrap();
+        let rpki_stats = PathBuf::from(rpki_stats_file);
 
-        let dels_file = matches.value_of("delegations").unwrap();
-        let dels = PathBuf::from(dels_file);
+        let delegations_file = matches.value_of("delegations").unwrap();
+        let delegations = PathBuf::from(delegations_file);
 
         let format = {
             if let Some(format) = matches.value_of("format") {
@@ -364,8 +364,8 @@ impl WorldStatsOpts {
 
         Ok(WorldStatsOpts {
             announcements,
-            vrps,
-            dels,
+            rpki_stats,
+            delegations,
             format,
         })
     }
@@ -385,19 +385,19 @@ pub enum WorldStatsFormat {
 /// json, or HTML using the template included in this source.
 pub struct WorldStatsReporter<'a> {
     announcements: &'a Announcements,
-    vrps: &'a Vrps,
+    rpki_stats: &'a RpkiStats,
     delegations: &'a IpDelegations,
 }
 
 impl<'a> WorldStatsReporter<'a> {
     pub fn new(
         announcements: &'a Announcements,
-        vrps: &'a Vrps,
+        rpki_stats: &'a RpkiStats,
         delegations: &'a IpDelegations,
     ) -> Self {
         WorldStatsReporter {
             announcements,
-            vrps,
+            rpki_stats,
             delegations,
         }
     }
@@ -408,12 +408,13 @@ impl<'a> WorldStatsReporter<'a> {
         let now = std::time::SystemTime::now();
 
         let nr_anns = self.announcements.all().len();
-        let nr_vrps = self.vrps.all().len();
+        let nr_vrps = self.rpki_stats.vrps().all().len();
 
         eprint!("Start.....");
 
         for ann in self.announcements.all() {
-            let matching_roas = self.vrps.containing(ann.as_ref());
+            let matching_roas =
+                self.rpki_stats.vrps().containing(ann.as_ref());
             let validated =
                 ValidatedAnnouncement::create(ann, &matching_roas);
             let cc = self.delegations.find_cc(ann.as_ref());
@@ -421,7 +422,7 @@ impl<'a> WorldStatsReporter<'a> {
             country_stats.add_ann(&validated, cc);
         }
 
-        for vrp in self.vrps.all() {
+        for vrp in self.rpki_stats.vrps().all() {
             let anns = self.announcements.contained_by(vrp.as_ref());
 
             let impact = VrpImpact::evaluate(vrp, &anns);
@@ -441,15 +442,20 @@ impl<'a> WorldStatsReporter<'a> {
     }
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
-        let announcements =
-            Announcements::from_ris(&options.announcements).unwrap();
+        let announcements = Announcements::from_ris(&options.announcements)
+            .map_err(Error::msg)?;
 
-        let vrps = Vrps::from_file(&options.vrps).unwrap();
+        let rpki_stats = RpkiStats::from_routinator_file(&options.rpki_stats)
+            .map_err(Error::msg)?;
 
-        let delegations = IpDelegations::from_file(&options.dels).unwrap();
+        let delegations = IpDelegations::from_file(&options.delegations)
+            .map_err(Error::msg)?;
 
-        let reporter =
-            WorldStatsReporter::new(&announcements, &vrps, &delegations);
+        let reporter = WorldStatsReporter::new(
+            &announcements,
+            &rpki_stats,
+            &delegations,
+        );
 
         let stats = reporter.analyse();
 
@@ -486,7 +492,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn msg(s: &str) -> Self {
+    pub fn msg(s: impl std::fmt::Display) -> Self {
         Error::WithMessage(s.to_string())
     }
 }

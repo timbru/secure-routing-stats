@@ -1,14 +1,9 @@
-[![Travis Build Status](https://travis-ci.com/NLnetLabs/secure-routing-stats.svg?branch=master)](https://travis-ci.com/NLnetLabs/secure-routing-stats)
-
 # Secure Routing Statistics
 
-Analyse the quality of RPKI ROAs vs BGP.
+Analyse the quality of RPKI ROAs and ASPA vs BGP.
 
 If you have any feedback, we would love to hear from you. Don’t hesitate to
-[create an issue on Github](https://github.com/NLnetLabs/secure-routing-stats/issues/new)
-or post a message on our [RPKI mailing list](https://nlnetlabs.nl/mailman/listinfo/rpki). 
-You can lean more about Routinator and RPKI technology by reading our documentation on 
-[Read the Docs](https://rpki.readthedocs.io/).
+[create an issue on Github](https://github.com/timbru/secure-routing-stats/issues/new)
 
 ## Getting Started
 
@@ -61,13 +56,13 @@ Produces a report of totals for valid, invalid asn, invalid length and not
 found announcements per country, organised by country code. Also includes an
 overall total (using the key 'all'). As input this needs three files:
 * RIS style dump file
-* roas.csv
+* Routinator style validated RPKI stats JSON
 * NRO delegated extended statistics
 
-RIS dump files may be found [here](http://www.ris.ripe.net/dumps/). The roas.csv format of either
-[routinator](https://github.com/NLnetLabs/routinator) or 
-[RIPE NCC RPKI Validator](https://github.com/ripE-NCC/rpki-validator-3) are supported. Delegated
-stats can be found [here](https://www.nro.net/wp-content/uploads/apnic-uploads/delegated-extended).
+RIS dump files may be found [here](http://www.ris.ripe.net/dumps/).
+The [routinator](https://github.com/NLnetLabs/routinator) JSON endpoint is
+used for stats. See example [here](https://rpki-validator.ripe.net/json).
+Delegated stats can be found [here](https://www.nro.net/wp-content/uploads/apnic-uploads/delegated-extended).
 
 You can also use your own files of course, e.g. if you want to hypothesise about the impact of
 potential announcements and/or roas, as long as you follow the same format. Beware that you will
@@ -78,17 +73,17 @@ disregarded.
 Default output format is json. Example:
 ```
 $ secure_routing_stats world \
-      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
-      --vrps test/20190304/vrps.csv \
-      --delegations test/20190304/delegated-extended.txt 
+      --announcements test/20250112/riswhoisdump.IPv4 test/20250112/riswhoisdump.IPv6 \
+      --rpki test/20250112/routinator-shortened.json \
+      --delegations test/20250112/delegated-extended.txt 
 ```
 
 Alternatively this can produce simple text output:
 ```
 $ secure_routing_stats world\
-      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
-      --vrps test/20190304/vrps.csv \
-      --delegations test/20190304/delegated-extended.txt \
+      --announcements test/20250112/riswhoisdump.IPv4 test/20250112/riswhoisdump.IPv6 \
+      --rpki test/20250112/routinator-shortened.json \
+      --delegations test/20250112/delegated-extended.txt \
       --format text
 ```
 
@@ -101,8 +96,8 @@ visibility of Validated ROA Payloads in BGP.
 This defaults to all resources when run like this:
 ```
 $ secure_routing_stats resources \
-      --announcements  test/20190304/riswhoisdump.IPv4 \
-      --vrps test/20190304/vrps.csv \
+      --announcements  test/20250112/riswhoisdump.IPv4 \
+      --rpki test/20250112/routinator-shortened.json \
 ```
 
 But in practice you will want to scope this report to specific IP resources, 
@@ -112,16 +107,16 @@ can also have text output:
 Examples:
 ```
 $ secure_routing_stats resources \
-      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
-      --vrps test/20190304/vrps.csv \
+      --announcements test/20250112/riswhoisdump.IPv4 test/20250112/riswhoisdump.IPv6 \
+      --rpki test/20250112/routinator-shortened.csv \
       --ips "185.49.140.0/22, 2a04:b900::/29" \
       --format text
 ```
 
 ```
 $ secure_routing_stats resources \
-      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
-      --vrps test/20190304/vrps.csv \
+      --announcements test/20250112/riswhoisdump.IPv4 test/20250112/riswhoisdump.IPv6 \
+      --rpki test/20250112/routinator-shortened.json \
       --asns "AS199664, AS199665-AS199666"
 ```
 
@@ -137,9 +132,9 @@ We have a public instance of this running [here](https://rpki-maps.nlnetlabs.nl/
 You can run this locally:
 ```
 $ secure_routing_stats daemon \
-      --announcements test/20190304/riswhoisdump.IPv4 test/20190304/riswhoisdump.IPv6 \
-      --vrps test/20190304/vrps.csv \
-      --delegations test/20190304/delegated-extended.txt 
+      --announcements test/20250112/riswhoisdump.IPv4 test/20250112/riswhoisdump.IPv6 \
+      --rpki test/20250112/routinator-shortened.json \
+      --delegations test/20250112/delegated-extended.txt 
 ```
 
 The server will bind to port 8080, or die trying.
