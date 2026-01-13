@@ -1,4 +1,6 @@
 use intervaltree::IntervalTree;
+use serde::de;
+use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
 use std::cmp;
@@ -61,6 +63,20 @@ impl Serialize for Asn {
         S: Serializer,
     {
         self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Asn {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let string = String::deserialize(d)?.to_ascii_lowercase();
+        let stripped = string.strip_prefix("as").unwrap_or(&string);
+
+        u32::from_str(stripped)
+            .map(|val| Asn { val })
+            .map_err(de::Error::custom)
     }
 }
 
@@ -485,6 +501,16 @@ impl Serialize for IpPrefix {
         S: Serializer,
     {
         self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for IpPrefix {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let s = String::deserialize(d)?.to_ascii_lowercase();
+        IpPrefix::from_str(&s).map_err(de::Error::custom)
     }
 }
 
