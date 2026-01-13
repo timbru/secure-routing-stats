@@ -5,10 +5,11 @@ use crate::ip::AsnSet;
 use crate::ip::IpResourceSet;
 use crate::ip::IpRespourceSetError;
 use crate::report::ScopeLimits;
+use crate::rpki_stats;
+use crate::rpki_stats::RpkiStats;
 use crate::validation::ValidatedAnnouncement;
 use crate::validation::ValidationState;
 use crate::validation::VrpImpact;
-use crate::vrps;
 use crate::vrps::ValidatedRoaPayload;
 use crate::vrps::Vrps;
 use clap::ArgMatches;
@@ -20,7 +21,7 @@ use std::str::FromStr;
 
 pub struct ResourceReportOpts {
     announcements: Vec<PathBuf>,
-    vrps: PathBuf,
+    rpki_stats: PathBuf,
     scope: ScopeLimits,
     format: ReportFormat,
 }
@@ -36,8 +37,8 @@ impl ResourceReportOpts {
             announcements.push(PathBuf::from(name))
         }
 
-        let vrps_file = matches.value_of("vrps").unwrap();
-        let vrps = PathBuf::from(vrps_file);
+        let rpki_stats_file = matches.value_of("rpki").unwrap();
+        let rpki_stats = PathBuf::from(rpki_stats_file);
 
         let ips = {
             if let Some(ips) = matches.value_of("ips") {
@@ -77,7 +78,7 @@ impl ResourceReportOpts {
 
         Ok(ResourceReportOpts {
             announcements,
-            vrps,
+            rpki_stats,
             scope,
             format,
         })
@@ -129,16 +130,19 @@ impl<'a> ResourceReporter<'a> {
 
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
         let announcements = Announcements::from_ris(&options.announcements)?;
-        let vrps = Vrps::from_file(&options.vrps)?;
+        let rpki_stats =
+            RpkiStats::from_routinator_file(&options.rpki_stats)?;
 
         match options.format {
             ReportFormat::Json => {
-                let reporter = ResourceReporter::new(&announcements, &vrps);
+                let reporter =
+                    ResourceReporter::new(&announcements, rpki_stats.vrps());
                 let res = reporter.analyse(options.scope());
                 println!("{}", serde_json::to_string(&res)?)
             }
             ReportFormat::Text => {
-                let reporter = ResourceReporter::new(&announcements, &vrps);
+                let reporter =
+                    ResourceReporter::new(&announcements, rpki_stats.vrps());
                 let res = reporter.analyse(options.scope());
                 print!("{}", res)
             }
@@ -279,7 +283,7 @@ pub enum Error {
     AnnouncementsError(announcements::Error),
 
     #[display(fmt = "{}", _0)]
-    VrpsError(vrps::Error),
+    StatsError(rpki_stats::Error),
 
     #[display(fmt = "{}", _0)]
     JsonError(serde_json::Error),
@@ -309,9 +313,9 @@ impl From<announcements::Error> for Error {
     }
 }
 
-impl From<vrps::Error> for Error {
-    fn from(e: vrps::Error) -> Self {
-        Error::VrpsError(e)
+impl From<rpki_stats::Error> for Error {
+    fn from(e: rpki_stats::Error) -> Self {
+        Error::StatsError(e)
     }
 }
 

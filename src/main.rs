@@ -56,12 +56,12 @@ enum Options {
 
 impl Options {
     pub fn create() -> Result<Self, Error> {
-        let matches = App::new("NLnet Labs RRDP Server")
-            .version("0.1b")
-            .about("Analyse ROA quality vs BGP")
+        let matches = App::new("Secure Routing Stats")
+            .version("0.3.0")
+            .about("Analyse RPKI ROAs and ASPA vs BGP")
             .subcommand(
                 SubCommand::with_name("world")
-                    .about("Report ROA quality on a per country basis")
+                    .about("Report ROAs and ASPA on a per country basis")
                     .arg(
                         Arg::with_name("announcements")
                             .short("a")
@@ -72,11 +72,11 @@ impl Options {
                             .min_values(1),
                     )
                     .arg(
-                        Arg::with_name("vrps")
-                            .short("v")
-                            .long("vrps")
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
                             .value_name("FILE")
-                            .help("Validated ROAs Payloads CSV file.")
+                            .help("Validated RPKI stats in routinator style JSON.")
                             .required(true),
                     )
                     .arg(
@@ -109,11 +109,11 @@ impl Options {
                             .min_values(1),
                     )
                     .arg(
-                        Arg::with_name("vrps")
-                            .short("v")
-                            .long("vrps")
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
                             .value_name("FILE")
-                            .help("Validated ROAs Payloads CSV file.")
+                            .help("Validated RPKI stats in routinator style JSON.")
                             .required(true),
                     )
                     .arg(
@@ -154,11 +154,11 @@ impl Options {
                             .min_values(1),
                     )
                     .arg(
-                        Arg::with_name("vrps")
-                            .short("v")
-                            .long("vrps")
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
                             .value_name("FILE")
-                            .help("Validated ROAs Payloads CSV file.")
+                            .help("Validated RPKI stats in routinator style JSON.")
                             .required(true),
                     )
                     .arg(

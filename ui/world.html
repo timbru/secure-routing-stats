@@ -65,7 +65,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
           <label class="my-1 mr-2" for="scope">IP or ASN scope</label>
           <input type="text" class="form-control mr-2" id="scope" placeholder="0.0.0.0/8" v-model="scope"
             v-on:keyup.enter="analyse">
-          <button type="button" class="btn btn-primary" @click="analyse" :disabled="scope==''">Analyse this!</button>
+          <button type="button" class="btn btn-primary" @click="analyse" :disabled="scope==''">check</button>
         </form>
 
         <span v-if="results">

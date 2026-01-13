@@ -1,11 +1,12 @@
 [package]
 name = "secure_routing_stats"
-version = "0.2.0-beta"
+version = "0.3.0"
 authors = ["Tim Bruijnzeels <tim.bruijnzeels@gmail.com>"]
 edition = "2021"
 
 [dependencies]
 axum         = "0.7.5"
+chrono       = "0.4.42"
 clap         = "^2.23"
 derive_more  = "^0.13"
 intervaltree = "0.2.4"
