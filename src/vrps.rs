@@ -1,11 +1,10 @@
-//! Parse ROAs.csv
-use crate::ip::Asn;
-use crate::ip::IpPrefix;
-use crate::ip::IpRange;
-use crate::ip::IpRangeTree;
-use crate::ip::IpRangeTreeBuilder;
-use crate::report::ScopeLimits;
 use std::fmt;
+
+use crate::{
+    asn::Asn,
+    ip::{IpPrefix, IpRange, IpRangeTree, IpRangeTreeBuilder},
+    report::ScopeLimits,
+};
 
 #[cfg(test)]
 /// Parse a string like "AS65000, 192.168.0.0/20, 20"
