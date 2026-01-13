@@ -2,8 +2,8 @@
 //!
 //! http://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz
 
-use crate::ip::Asn;
-use crate::ip::AsnError;
+use crate::asn::Asn;
+use crate::asn::AsnError;
 use crate::ip::IpPrefix;
 use crate::ip::IpPrefixError;
 use crate::ip::IpRange;

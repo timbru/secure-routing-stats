@@ -3,7 +3,7 @@
 //! For now, this is the quickest option. In time, this should probably be
 //! replaced by something that parses CCR output.
 
-use crate::ip::{Asn, IpPrefix};
+use crate::{asn::Asn, ip::IpPrefix};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RoutinatorStatsJson {
