@@ -8,6 +8,7 @@ pub mod delegations;
 pub mod ip;
 pub mod report;
 pub mod routinator_json;
+pub mod rpki_stats;
 pub mod server;
 pub mod validation;
 pub mod vrps;

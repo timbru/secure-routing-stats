@@ -1,24 +1,43 @@
 //! Parse ROAs.csv
 use crate::ip::Asn;
-use crate::ip::AsnError;
 use crate::ip::IpPrefix;
-use crate::ip::IpPrefixError;
 use crate::ip::IpRange;
 use crate::ip::IpRangeTree;
 use crate::ip::IpRangeTreeBuilder;
 use crate::report::ScopeLimits;
 use std::fmt;
-use std::fmt::Display;
-use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::num::ParseIntError;
-use std::path::Path;
-use std::str::FromStr;
 
 #[cfg(test)]
+/// Parse a string like "AS65000, 192.168.0.0/20, 20"
+/// panics when then wrong format is used.
 pub fn vrp(s: &str) -> ValidatedRoaPayload {
-    ValidatedRoaPayload::from_str(s).unwrap()
+    use std::str::FromStr;
+
+    let line = s.replace('"', "");
+    let line = line.replace(' ', "");
+    let mut values = line.split(',');
+
+    let asn_str = values.next().unwrap();
+    let asn = Asn::from_str(asn_str).unwrap();
+
+    let prefix_str = values.next().unwrap();
+    let prefix = IpPrefix::from_str(prefix_str).unwrap();
+
+    let length_str = values.next().unwrap();
+    let max_length = u8::from_str(length_str).unwrap();
+
+    ValidatedRoaPayload {
+        asn,
+        prefix,
+        max_length,
+    }
+
+    //     impl FromStr for ValidatedRoaPayload {
+    //     type Err = Error;
+
+    //     fn from_str(s: &str) -> Result<Self, Self::Err> {
+    //     }
+    // }
 }
 
 //------------ ValidatedRoaPrefix --------------------------------------------
@@ -31,6 +50,14 @@ pub struct ValidatedRoaPayload {
 }
 
 impl ValidatedRoaPayload {
+    pub fn new(asn: Asn, prefix: IpPrefix, max_length: u8) -> Self {
+        ValidatedRoaPayload {
+            asn,
+            prefix,
+            max_length,
+        }
+    }
+
     pub fn asn(&self) -> Asn {
         self.asn
     }
@@ -75,31 +102,6 @@ impl AsRef<IpRange> for ValidatedRoaPayload {
     }
 }
 
-impl FromStr for ValidatedRoaPayload {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let line = s.replace('"', "");
-        let line = line.replace(' ', "");
-        let mut values = line.split(',');
-
-        let asn_str = values.next().ok_or(Error::MissingColumn)?;
-        let asn = Asn::from_str(asn_str)?;
-
-        let prefix_str = values.next().ok_or(Error::MissingColumn)?;
-        let prefix = IpPrefix::from_str(prefix_str)?;
-
-        let length_str = values.next().ok_or(Error::MissingColumn)?;
-        let max_length = u8::from_str(length_str)?;
-
-        Ok(ValidatedRoaPayload {
-            asn,
-            prefix,
-            max_length,
-        })
-    }
-}
-
 impl fmt::Display for ValidatedRoaPayload {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -118,26 +120,16 @@ pub struct Vrps {
 }
 
 impl Vrps {
-    pub fn from_file(path: &Path) -> Result<Self, Error> {
-        let file = File::open(path).map_err(|_| Error::read_error(path))?;
-        let reader = BufReader::new(file);
-
+    pub fn from_payloads(payloads: Vec<ValidatedRoaPayload>) -> Self {
         let mut builder = IpRangeTreeBuilder::empty();
 
-        for lres in reader.lines() {
-            let line = lres.map_err(Error::parse_error)?;
-            let line = line.replace('"', "");
-            let line = line.replace(' ', "");
-            if line.starts_with("ASN") {
-                continue;
-            }
-            let vrp = ValidatedRoaPayload::from_str(&line)?;
+        for vrp in payloads {
             builder.add(vrp);
         }
 
-        Ok(Vrps {
+        Vrps {
             tree: builder.build(),
-        })
+        }
     }
 
     pub fn in_scope(&self, scope: &ScopeLimits) -> Vec<&ValidatedRoaPayload> {
@@ -172,59 +164,11 @@ impl Vrps {
     }
 }
 
-//------------ Error --------------------------------------------------------
-
-#[derive(Debug, Display)]
-pub enum Error {
-    #[display(fmt = "Cannot read file: {}", _0)]
-    CannotRead(String),
-
-    #[display(fmt = "Missing column in roas.csv")]
-    MissingColumn,
-
-    #[display(fmt = "Error parsing ROAs.csv: {}", _0)]
-    ParseError(String),
-}
-
-impl Error {
-    fn read_error(path: &Path) -> Self {
-        Error::CannotRead(path.to_string_lossy().to_string())
-    }
-    fn parse_error(e: impl Display) -> Self {
-        Error::ParseError(format!("{}", e))
-    }
-}
-
-impl From<IpPrefixError> for Error {
-    fn from(e: IpPrefixError) -> Self {
-        Error::parse_error(e)
-    }
-}
-
-impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Self {
-        Error::parse_error(e)
-    }
-}
-
-impl From<AsnError> for Error {
-    fn from(e: AsnError) -> Self {
-        Error::parse_error(e)
-    }
-}
-
 //------------ Tests --------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-
-    #[test]
-    fn should_read_from_file() {
-        let path = PathBuf::from("test/20190304/vrps.csv");
-        Vrps::from_file(&path).unwrap();
-    }
 
     #[test]
     fn should_detect_number_of_most_specific_announcements() {
