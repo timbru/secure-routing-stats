@@ -1,3 +1,4 @@
+use intervaltree::IntervalTree;
 use serde::de;
 use serde::Deserialize;
 use serde::Serialize;
@@ -5,6 +6,8 @@ use serde::Serializer;
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
+
+use crate::delegations::AsnDelegation;
 
 //------------ Asn ----------------------------------------------------------
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -27,6 +30,12 @@ impl PartialOrd for Asn {
 impl AsRef<u32> for Asn {
     fn as_ref(&self) -> &u32 {
         &self.val
+    }
+}
+
+impl From<u32> for Asn {
+    fn from(val: u32) -> Self {
+        Asn { val }
     }
 }
 
@@ -71,13 +80,17 @@ impl<'de> Deserialize<'de> for Asn {
 
 //------------ AsnRange ------------------------------------------------------
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AsnRange {
     min: Asn,
     max: Asn,
 }
 
 impl AsnRange {
+    pub fn new(min: Asn, max: Asn) -> Self {
+        AsnRange { min, max }
+    }
+
     pub fn contains(&self, asn: Asn) -> bool {
         self.min <= asn && self.max >= asn
     }
@@ -116,6 +129,15 @@ impl Serialize for AsnRange {
         S: Serializer,
     {
         self.to_string().serialize(serializer)
+    }
+}
+
+impl From<&AsnRange> for std::ops::Range<u32> {
+    fn from(asn_range: &AsnRange) -> Self {
+        std::ops::Range {
+            start: asn_range.min.val,
+            end: asn_range.max.val,
+        }
     }
 }
 
@@ -196,6 +218,39 @@ impl Serialize for AsnSet {
         self.to_string().serialize(serializer)
     }
 }
+
+//------------ AsnDelegationsTree -------------------------------------------
+
+/// Supports indexing and cheap matching of AsnRanges
+#[derive(Debug)]
+pub struct AsnDelegationsTree {
+    tree: IntervalTree<u32, AsnDelegation>,
+}
+
+impl AsnDelegationsTree {
+    pub fn build(delegations: Vec<AsnDelegation>) -> Self {
+        let tree = delegations
+            .into_iter()
+            .map(|delegation| (delegation.to_range(), delegation))
+            .collect();
+
+        Self { tree }
+    }
+
+    /// Finds the matching delegation for a given ASN
+    ///
+    /// Note that in principle there should not be any overlaps in ASN
+    /// delegations. If this happens there is an issue with the delegations
+    /// input file. However, if this should happen this function just returns
+    /// the first match, rather than erroring out or panicking.
+    ///
+    /// If there is no matching delegation, then we return None.
+    pub fn matching(&self, asn: &Asn) -> Option<&AsnDelegation> {
+        self.tree.query_point(asn.val).next().map(|el| &el.value)
+    }
+}
+
+//------------ AsnError ------------------------------------------------------
 
 #[derive(Debug, Display)]
 pub enum AsnError {
