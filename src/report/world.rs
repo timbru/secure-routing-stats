@@ -1,18 +1,21 @@
 //! Reporting of the stats found
-use crate::announcements::Announcements;
-use crate::delegations::IpDelegations;
-use crate::ip::IpRespourceSetError;
-use crate::rpki_stats::RpkiStats;
-use crate::validation::ValidatedAnnouncement;
-use crate::validation::ValidationState;
-use crate::validation::VrpImpact;
-use clap::ArgMatches;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
 use std::path::PathBuf;
+
+use clap::ArgMatches;
+
+use crate::{
+    inputs::{
+        announcements::Announcements, delegations::IpDelegations,
+        ip::IpResourceSetError,
+    },
+    rpki_stats::RpkiStats,
+    validation::{ValidatedAnnouncement, ValidationState, VrpImpact},
+};
 
 //------------ CountryStat --------------------------------------------------
 
@@ -485,7 +488,7 @@ pub enum Error {
     WithMessage(String),
 
     #[display(fmt = "{}", _0)]
-    IpResourceSet(IpRespourceSetError),
+    IpResourceSet(IpResourceSetError),
 
     #[display(fmt = "{}", _0)]
     JsonError(serde_json::Error),
@@ -497,8 +500,8 @@ impl Error {
     }
 }
 
-impl From<IpRespourceSetError> for Error {
-    fn from(e: IpRespourceSetError) -> Self {
+impl From<IpResourceSetError> for Error {
+    fn from(e: IpResourceSetError) -> Self {
         Error::IpResourceSet(e)
     }
 }

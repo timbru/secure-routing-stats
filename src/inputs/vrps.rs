@@ -1,8 +1,10 @@
 use std::fmt;
 
 use crate::{
-    asn::Asn,
-    ip::{IpPrefix, IpRange, IpRangeTree, IpRangeTreeBuilder},
+    inputs::{
+        asn::Asn,
+        ip::{IpPrefix, IpRange, IpRangeTree, IpRangeTreeBuilder},
+    },
     report::ScopeLimits,
 };
 

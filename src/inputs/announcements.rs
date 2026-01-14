@@ -2,15 +2,6 @@
 //!
 //! http://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz
 
-use crate::asn::Asn;
-use crate::asn::AsnError;
-use crate::ip::IpPrefix;
-use crate::ip::IpPrefixError;
-use crate::ip::IpRange;
-use crate::ip::IpRangeTree;
-use crate::ip::IpRangeTreeBuilder;
-use crate::report::ScopeLimits;
-use crate::validation::ValidatedAnnouncement;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufRead;
@@ -19,6 +10,17 @@ use std::num::ParseIntError;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use crate::{
+    inputs::{
+        asn::{Asn, AsnError},
+        ip::{
+            IpPrefix, IpPrefixError, IpRange, IpRangeTree, IpRangeTreeBuilder,
+        },
+    },
+    report::ScopeLimits,
+    validation::ValidatedAnnouncement,
+};
 
 //------------ Announcement --------------------------------------------------
 

@@ -1,13 +1,11 @@
-use intervaltree::IntervalTree;
-use serde::de;
-use serde::Deserialize;
-use serde::Serialize;
-use serde::Serializer;
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
-use crate::delegations::AsnDelegation;
+use serde::de;
+use serde::Deserialize;
+use serde::Serialize;
+use serde::Serializer;
 
 //------------ Asn ----------------------------------------------------------
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -36,6 +34,12 @@ impl AsRef<u32> for Asn {
 impl From<u32> for Asn {
     fn from(val: u32) -> Self {
         Asn { val }
+    }
+}
+
+impl From<&Asn> for u32 {
+    fn from(asn: &Asn) -> Self {
+        asn.val
     }
 }
 
@@ -216,37 +220,6 @@ impl Serialize for AsnSet {
         S: Serializer,
     {
         self.to_string().serialize(serializer)
-    }
-}
-
-//------------ AsnDelegationsTree -------------------------------------------
-
-/// Supports indexing and cheap matching of AsnRanges
-#[derive(Debug)]
-pub struct AsnDelegationsTree {
-    tree: IntervalTree<u32, AsnDelegation>,
-}
-
-impl AsnDelegationsTree {
-    pub fn build(delegations: Vec<AsnDelegation>) -> Self {
-        let tree = delegations
-            .into_iter()
-            .map(|delegation| (delegation.to_range(), delegation))
-            .collect();
-
-        Self { tree }
-    }
-
-    /// Finds the matching delegation for a given ASN
-    ///
-    /// Note that in principle there should not be any overlaps in ASN
-    /// delegations. If this happens there is an issue with the delegations
-    /// input file. However, if this should happen this function just returns
-    /// the first match, rather than erroring out or panicking.
-    ///
-    /// If there is no matching delegation, then we return None.
-    pub fn matching(&self, asn: &Asn) -> Option<&AsnDelegation> {
-        self.tree.query_point(asn.val).next().map(|el| &el.value)
     }
 }
 
