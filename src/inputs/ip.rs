@@ -408,7 +408,7 @@ impl IpResourceSet {
 }
 
 impl FromStr for IpResourceSet {
-    type Err = IpRespourceSetError;
+    type Err = IpResourceSetError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let string = s.replace(' ', ""); // rem. whitespace
@@ -595,7 +595,7 @@ impl From<ParseIntError> for IpPrefixError {
 }
 
 #[derive(Debug, Display)]
-pub enum IpRespourceSetError {
+pub enum IpResourceSetError {
     #[display(
         fmt = "Invalid syntax. Expect comma separated prefixes/ranges"
     )]
@@ -608,15 +608,15 @@ pub enum IpRespourceSetError {
     IpPrefixError(IpPrefixError),
 }
 
-impl From<IpRangeError> for IpRespourceSetError {
+impl From<IpRangeError> for IpResourceSetError {
     fn from(e: IpRangeError) -> Self {
-        IpRespourceSetError::IpRangeError(e)
+        IpResourceSetError::IpRangeError(e)
     }
 }
 
-impl From<IpPrefixError> for IpRespourceSetError {
+impl From<IpPrefixError> for IpResourceSetError {
     fn from(e: IpPrefixError) -> Self {
-        IpRespourceSetError::IpPrefixError(e)
+        IpResourceSetError::IpPrefixError(e)
     }
 }
 

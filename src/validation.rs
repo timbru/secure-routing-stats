@@ -1,6 +1,6 @@
-use crate::announcements::Announcement;
-use crate::ip::IpRange;
-use crate::vrps::ValidatedRoaPayload;
+use crate::inputs::{
+    announcements::Announcement, ip::IpRange, vrps::ValidatedRoaPayload,
+};
 use std::fmt;
 use std::fmt::Display;
 
@@ -152,7 +152,7 @@ impl VrpImpact {
 mod tests {
 
     use super::*;
-    use crate::vrps::vrp;
+    use crate::inputs::vrps::vrp;
     use std::str::FromStr;
 
     fn ann(s: &str) -> Announcement {
