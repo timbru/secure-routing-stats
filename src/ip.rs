@@ -458,6 +458,7 @@ impl Serialize for IpResourceSet {
 
 //------------ IpRangeTree --------------------------------------------------
 
+/// Supports indexing and cheap matching of IpRanges
 #[derive(Debug)]
 pub struct IpRangeTree<V: AsRef<IpRange>> {
     tree: IntervalTree<u128, Vec<V>>,
@@ -526,8 +527,9 @@ impl<V: AsRef<IpRange>> IpRangeTreeBuilder<V> {
     }
 
     pub fn build(self) -> IpRangeTree<V> {
-        let tree = self.values.into_iter().collect();
-        IpRangeTree { tree }
+        IpRangeTree {
+            tree: self.values.into_iter().collect(),
+        }
     }
 }
 
