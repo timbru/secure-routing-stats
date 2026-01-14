@@ -1,4 +1,5 @@
 //! Parse delegated extended stats
+use crate::asn::{Asn, AsnDelegationsTree, AsnError, AsnRange};
 use crate::ip::{
     IpAddress, IpAddressError, IpPrefix, IpPrefixError, IpRange,
     IpRangeError, IpRangeTree, IpRangeTreeBuilder,
@@ -211,6 +212,92 @@ impl IpDelegations {
     }
 }
 
+//------------ AsnDelegations -----------------------------------------------
+
+#[derive(Debug)]
+pub struct AsnDelegations {
+    tree: AsnDelegationsTree,
+}
+
+impl AsnDelegations {
+    pub fn from_file(path: &Path) -> Result<Self, Error> {
+        let file = File::open(path).map_err(|_| Error::read_error(path))?;
+        let reader = BufReader::new(file);
+
+        let mut delegations = Vec::new();
+
+        for line_res in reader.lines() {
+            let line = line_res.map_err(Error::parse_error)?;
+
+            if let Some(delegation) = AsnDelegation::from_nro_line(&line)? {
+                delegations.push(delegation);
+            }
+        }
+
+        Ok(AsnDelegations {
+            tree: AsnDelegationsTree::build(delegations),
+        })
+    }
+}
+
+//------------ AsnDelegation ------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub struct AsnDelegation {
+    reg: Registry,
+    cc: String,
+    range: AsnRange,
+    state: DelegationState,
+}
+
+impl AsnDelegation {
+    pub fn to_range(&self) -> std::ops::Range<u32> {
+        (&self.range).into()
+    }
+
+    fn from_nro_line(s: &str) -> Result<Option<Self>, Error> {
+        if s.contains("nro|") || !s.contains("|asn|") {
+            Ok(None)
+        } else {
+            let mut values = s.split('|');
+
+            let reg_str =
+                values.next().ok_or_else(|| Error::missing("rir", s))?;
+            let cc_str =
+                values.next().ok_or_else(|| Error::missing("cc", s))?;
+            let inr_type_str =
+                values.next().ok_or_else(|| Error::missing("type", s))?;
+            let min_str =
+                values.next().ok_or_else(|| Error::missing("min", s))?;
+            let amount_str =
+                values.next().ok_or_else(|| Error::missing("amount", s))?;
+            let _date_str =
+                values.next().ok_or_else(|| Error::missing("date", s))?;
+            let state_str =
+                values.next().ok_or_else(|| Error::missing("state", s))?;
+
+            if inr_type_str != "asn" {
+                Err(Error::parse_error("unsupported inr type"))
+            } else {
+                let reg = Registry::from_str(reg_str)?;
+                let cc = cc_str.to_string();
+                let min = Asn::from_str(min_str)?;
+                let number = u32::from_str(amount_str)?;
+                let max = Asn::from(number - 1 + min.as_ref());
+                let range = AsnRange::new(min, max);
+                let state = DelegationState::from_str(state_str)?;
+
+                Ok(Some(AsnDelegation {
+                    reg,
+                    cc,
+                    range,
+                    state,
+                }))
+            }
+        }
+    }
+}
+
 //------------ Error --------------------------------------------------------
 
 #[derive(Debug, Display)]
@@ -234,6 +321,12 @@ impl Error {
     }
     fn missing(c: &str, l: &str) -> Self {
         Error::MissingColumn(c.to_string(), l.to_string())
+    }
+}
+
+impl From<AsnError> for Error {
+    fn from(e: AsnError) -> Self {
+        Self::parse_error(e)
     }
 }
 
@@ -269,8 +362,14 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn should_read_from_file() {
+    fn should_read_ip_delegation_from_file() {
         let path = PathBuf::from("test/20250112/delegated-extended.txt");
         IpDelegations::from_file(&path).unwrap();
+    }
+
+    #[test]
+    fn should_read_asn_delegations_from_file() {
+        let path = PathBuf::from("test/20250112/delegated-extended.txt");
+        AsnDelegations::from_file(&path).unwrap();
     }
 }
