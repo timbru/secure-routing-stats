@@ -12,16 +12,18 @@ use tower_http::services::ServeDir;
 
 use clap::ArgMatches;
 
-use crate::announcements::{self, Announcements};
-use crate::delegations::{self, IpDelegations};
-use crate::report::resources::ResourceReportResult;
-use crate::report::world::CountryStats;
-use crate::report::ScopeQuery;
-use crate::report::{
-    resources::ResourceReporter, world::WorldStatsReporter, ScopeLimits,
+use crate::{
+    inputs::{
+        announcements::{self, Announcements},
+        delegations::{self, IpDelegations},
+    },
+    report::{
+        resources::{ResourceReportResult, ResourceReporter},
+        world::{CountryStats, WorldStatsReporter},
+        ScopeLimits, ScopeQuery,
+    },
+    rpki_stats::{self, RpkiStats},
 };
-use crate::rpki_stats;
-use crate::rpki_stats::RpkiStats;
 
 pub struct ServerOpts {
     announcements: Vec<PathBuf>,

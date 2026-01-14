@@ -1,21 +1,20 @@
-use crate::announcements;
-use crate::announcements::Announcements;
-use crate::asn::AsnError;
-use crate::asn::AsnSet;
-use crate::ip::IpResourceSet;
-use crate::ip::IpRespourceSetError;
-use crate::report::ScopeLimits;
-use crate::rpki_stats;
-use crate::rpki_stats::RpkiStats;
-use crate::validation::ValidatedAnnouncement;
-use crate::validation::ValidationState;
-use crate::validation::VrpImpact;
-use crate::vrps::ValidatedRoaPayload;
-use crate::vrps::Vrps;
-use clap::ArgMatches;
 use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use clap::ArgMatches;
+
+use crate::{
+    inputs::{
+        announcements::{self, Announcements},
+        asn::{AsnError, AsnSet},
+        ip::{IpResourceSet, IpResourceSetError},
+        vrps::{ValidatedRoaPayload, Vrps},
+    },
+    report::ScopeLimits,
+    rpki_stats::{self, RpkiStats},
+    validation::{ValidatedAnnouncement, ValidationState, VrpImpact},
+};
 
 //------------ ResourceReportOpts --------------------------------------------
 
@@ -274,7 +273,7 @@ pub enum Error {
     WithMessage(String),
 
     #[display(fmt = "{}", _0)]
-    IpResourceSet(IpRespourceSetError),
+    IpResourceSet(IpResourceSetError),
 
     #[display(fmt = "{}", _0)]
     AsnError(AsnError),
@@ -295,8 +294,8 @@ impl Error {
     }
 }
 
-impl From<IpRespourceSetError> for Error {
-    fn from(e: IpRespourceSetError) -> Self {
+impl From<IpResourceSetError> for Error {
+    fn from(e: IpResourceSetError) -> Self {
         Error::IpResourceSet(e)
     }
 }

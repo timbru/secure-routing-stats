@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::{
+use crate::inputs::{
     asn::{Asn, AsnError, AsnRange, AsnSet},
     ip::{
         IpAddress, IpAddressError, IpPrefix, IpPrefixError, IpRange,

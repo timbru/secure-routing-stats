@@ -3,7 +3,7 @@
 //! For now, this is the quickest option. In time, this should probably be
 //! replaced by something that parses CCR output.
 
-use crate::{asn::Asn, ip::IpPrefix};
+use crate::inputs::{asn::Asn, ip::IpPrefix};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RoutinatorStatsJson {
@@ -42,7 +42,8 @@ mod tests {
 
     #[test]
     fn parse_json() {
-        let json = include_str!("../test/20250112/routinator-shortened.json");
+        let json =
+            include_str!("../../test/20250112/routinator-shortened.json");
         let stats: RoutinatorStatsJson = serde_json::from_str(json).unwrap();
         assert_eq!(12, stats.roas.len());
         assert_eq!(15, stats.aspas.len());
