@@ -16,13 +16,15 @@ use crate::{
     inputs::{
         announcements::{self, Announcements},
         delegations::{self, IpDelegations},
+        rpki_stats::{self, RpkiStats},
     },
     report::{
-        resources::{ResourceReportResult, ResourceReporter},
-        world::{CountryStats, WorldStatsReporter},
-        ScopeLimits, ScopeQuery,
+        roas::{
+            resources::{ResourceReportResult, ResourceReporter},
+            world::{CountryStats, WorldStatsReporter},
+        },
+        scope::{ScopeLimits, ScopeQuery},
     },
-    rpki_stats::{self, RpkiStats},
 };
 
 pub struct ServerOpts {

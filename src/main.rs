@@ -3,18 +3,15 @@ extern crate clap;
 extern crate derive_more;
 extern crate secure_routing_stats;
 
-use clap::App;
-use clap::Arg;
-use clap::SubCommand;
-use secure_routing_stats::report::resources::{
-    self, ResourceReportOpts, ResourceReporter,
+use clap::{App, Arg, SubCommand};
+
+use secure_routing_stats::{
+    report::roas::{
+        resources::{self, ResourceReportOpts, ResourceReporter},
+        world::{self, WorldStatsOpts, WorldStatsReporter},
+    },
+    server::{self, ServerOpts, StatsApp},
 };
-use secure_routing_stats::report::world::{
-    self, WorldStatsOpts, WorldStatsReporter,
-};
-use secure_routing_stats::server;
-use secure_routing_stats::server::ServerOpts;
-use secure_routing_stats::server::StatsApp;
 
 #[tokio::main]
 async fn main() {

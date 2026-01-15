@@ -18,8 +18,7 @@ use crate::{
             IpPrefix, IpPrefixError, IpRange, IpRangeTree, IpRangeTreeBuilder,
         },
     },
-    report::ScopeLimits,
-    validation::ValidatedAnnouncement,
+    report::{roas::validation::ValidatedAnnouncement, scope::ScopeLimits},
 };
 
 //------------ Announcement --------------------------------------------------
