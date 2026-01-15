@@ -5,7 +5,7 @@ use std::{fmt::Display, fs::File, path::Path};
 use chrono::{DateTime, Utc};
 
 use crate::inputs::{
-    routinator_json::RoutinatorStatsJson,
+    routinator::RoutinatorStatsJson,
     vrps::{ValidatedRoaPayload, Vrps},
 };
 
