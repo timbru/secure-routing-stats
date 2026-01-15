@@ -5,7 +5,7 @@ use crate::{
         asn::Asn,
         ip::{IpPrefix, IpRange, IpRangeTree, IpRangeTreeBuilder},
     },
-    report::ScopeLimits,
+    report::scope::ScopeLimits,
 };
 
 #[cfg(test)]

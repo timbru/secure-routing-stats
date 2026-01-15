@@ -152,8 +152,10 @@ impl VrpImpact {
 mod tests {
 
     use super::*;
-    use crate::inputs::vrps::vrp;
+
     use std::str::FromStr;
+
+    use crate::inputs::vrps::vrp;
 
     fn ann(s: &str) -> Announcement {
         Announcement::from_str(s).unwrap()

@@ -9,11 +9,15 @@ use crate::{
         announcements::{self, Announcements},
         asn::{AsnError, AsnSet},
         ip::{IpResourceSet, IpResourceSetError},
+        rpki_stats::{self, RpkiStats},
         vrps::{ValidatedRoaPayload, Vrps},
     },
-    report::ScopeLimits,
-    rpki_stats::{self, RpkiStats},
-    validation::{ValidatedAnnouncement, ValidationState, VrpImpact},
+    report::{
+        roas::validation::{
+            ValidatedAnnouncement, ValidationState, VrpImpact,
+        },
+        scope::ScopeLimits,
+    },
 };
 
 //------------ ResourceReportOpts --------------------------------------------

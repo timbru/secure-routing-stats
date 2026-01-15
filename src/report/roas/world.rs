@@ -11,10 +11,11 @@ use clap::ArgMatches;
 use crate::{
     inputs::{
         announcements::Announcements, delegations::IpDelegations,
-        ip::IpResourceSetError,
+        ip::IpResourceSetError, rpki_stats::RpkiStats,
     },
-    rpki_stats::RpkiStats,
-    validation::{ValidatedAnnouncement, ValidationState, VrpImpact},
+    report::roas::validation::{
+        ValidatedAnnouncement, ValidationState, VrpImpact,
+    },
 };
 
 //------------ CountryStat --------------------------------------------------
