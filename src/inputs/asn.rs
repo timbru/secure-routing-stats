@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde::Serializer;
 
 //------------ Asn ----------------------------------------------------------
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
 pub struct Asn {
     val: u32,
 }
@@ -97,6 +97,14 @@ impl AsnRange {
 
     pub fn contains(&self, asn: Asn) -> bool {
         self.min <= asn && self.max >= asn
+    }
+
+    pub fn len(&self) -> u32 {
+        self.max.val - self.min.val + 1
+    }
+
+    pub fn is_empty(&self) -> bool {
+        false
     }
 }
 
