@@ -1,5 +1,6 @@
 //! Handle NRO/RIR delegations
 
+use std::fmt;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufRead;
@@ -20,7 +21,7 @@ use crate::inputs::{
 
 //------------ Registry -----------------------------------------------------
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Registry {
     Iana,
     Afrinic,
@@ -46,9 +47,41 @@ impl FromStr for Registry {
     }
 }
 
+impl fmt::Display for Registry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Registry::Iana => write!(f, "iana"),
+            Registry::Afrinic => write!(f, "afrinic"),
+            Registry::Apnic => write!(f, "apnic"),
+            Registry::Arin => write!(f, "arin"),
+            Registry::Lacnic => write!(f, "lacnic"),
+            Registry::RipeNcc => write!(f, "ripencc"),
+        }
+    }
+}
+
+//------------ Region --------------------------------------------------------
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum Region {
+    World,
+    Registry(Registry),
+    Country(String),
+}
+
+impl fmt::Display for Region {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Region::World => write!(f, "world"),
+            Region::Registry(registry) => registry.fmt(f),
+            Region::Country(country) => write!(f, "{country}"),
+        }
+    }
+}
+
 //------------ DelegationState -----------------------------------------------
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DelegationState {
     IANAPOOL,
     IETF,
@@ -217,42 +250,36 @@ impl IpDelegations {
     }
 }
 
-//------------ AsnDelegations -----------------------------------------------
-
-#[derive(Debug)]
-pub struct AsnDelegations {
-    tree: AsnDelegationsTree,
-}
-
-impl AsnDelegations {
-    pub fn from_file(path: &Path) -> Result<Self, Error> {
-        let file = File::open(path).map_err(|_| Error::read_error(path))?;
-        let reader = BufReader::new(file);
-
-        let mut delegations = Vec::new();
-
-        for line_res in reader.lines() {
-            let line = line_res.map_err(Error::parse_error)?;
-
-            if let Some(delegation) = AsnDelegation::from_nro_line(&line)? {
-                delegations.push(delegation);
-            }
-        }
-
-        Ok(AsnDelegations {
-            tree: AsnDelegationsTree::build(delegations),
-        })
-    }
-}
-
 //------------ AsnDelegation ------------------------------------------------
 
 #[derive(Clone, Debug)]
 pub struct AsnDelegation {
-    reg: Registry,
-    cc: String,
+    registry: Registry,
+    country_code: String,
     range: AsnRange,
     state: DelegationState,
+}
+
+impl AsnDelegation {
+    pub fn registry(&self) -> Region {
+        Region::Registry(self.registry)
+    }
+
+    pub fn country(&self) -> Region {
+        Region::Country(self.country_code.clone())
+    }
+
+    pub fn country_code(&self) -> &String {
+        &self.country_code
+    }
+
+    pub fn range(&self) -> AsnRange {
+        self.range
+    }
+
+    pub fn state(&self) -> &DelegationState {
+        &self.state
+    }
 }
 
 impl AsnDelegation {
@@ -260,6 +287,7 @@ impl AsnDelegation {
         (&self.range).into()
     }
 
+    /// Return assigned ASNs only
     fn from_nro_line(s: &str) -> Result<Option<Self>, Error> {
         if s.contains("nro|") || !s.contains("|asn|") {
             Ok(None)
@@ -284,34 +312,56 @@ impl AsnDelegation {
             if inr_type_str != "asn" {
                 Err(Error::parse_error("unsupported inr type"))
             } else {
-                let reg = Registry::from_str(reg_str)?;
-                let cc = cc_str.to_string();
-                let min = Asn::from_str(min_str)?;
-                let number = u32::from_str(amount_str)?;
-                let max = Asn::from(number - 1 + min.as_ref());
-                let range = AsnRange::new(min, max);
                 let state = DelegationState::from_str(state_str)?;
 
-                Ok(Some(AsnDelegation {
-                    reg,
-                    cc,
-                    range,
-                    state,
-                }))
+                if state == DelegationState::ASSIGNED {
+                    let reg = Registry::from_str(reg_str)?;
+                    let cc = cc_str.to_string();
+                    let min = Asn::from_str(min_str)?;
+                    let number = u32::from_str(amount_str)?;
+                    let max = Asn::from(number + min.as_ref());
+                    let range = AsnRange::new(min, max);
+
+                    Ok(Some(AsnDelegation {
+                        registry: reg,
+                        country_code: cc,
+                        range,
+                        state,
+                    }))
+                } else {
+                    Ok(None)
+                }
             }
         }
     }
 }
 
-//------------ AsnDelegationsTree -------------------------------------------
+//------------ AsnDelegations -----------------------------------------------
 
 /// Supports indexing and cheap matching of AsnRanges
 #[derive(Debug)]
-pub struct AsnDelegationsTree {
+pub struct AsnDelegations {
     tree: IntervalTree<u32, AsnDelegation>,
 }
 
-impl AsnDelegationsTree {
+impl AsnDelegations {
+    pub fn from_file(path: &Path) -> Result<Self, Error> {
+        let file = File::open(path).map_err(|_| Error::read_error(path))?;
+        let reader = BufReader::new(file);
+
+        let mut delegations = Vec::new();
+
+        for line_res in reader.lines() {
+            let line = line_res.map_err(Error::parse_error)?;
+
+            if let Some(delegation) = AsnDelegation::from_nro_line(&line)? {
+                delegations.push(delegation);
+            }
+        }
+
+        Ok(AsnDelegations::build(delegations))
+    }
+
     pub fn build(delegations: Vec<AsnDelegation>) -> Self {
         let tree = delegations
             .into_iter()
@@ -331,6 +381,11 @@ impl AsnDelegationsTree {
     /// If there is no matching delegation, then we return None.
     pub fn matching(&self, asn: &Asn) -> Option<&AsnDelegation> {
         self.tree.query_point(asn.into()).next().map(|el| &el.value)
+    }
+
+    /// Gets all delegations (unsorted)
+    pub fn all(&self) -> Vec<&AsnDelegation> {
+        self.tree.iter().map(|e| &e.value).collect()
     }
 }
 

@@ -9,8 +9,7 @@ use crate::{
         announcements::{self, Announcements},
         asn::{AsnError, AsnSet},
         ip::{IpResourceSet, IpResourceSetError},
-        rpki_stats::{self, RpkiStats},
-        vrps::{ValidatedRoaPayload, Vrps},
+        rpki_stats::{self, RpkiStats, ValidatedRoaPayload, Vrps},
     },
     report::{
         roas::validation::{
@@ -66,7 +65,6 @@ impl ResourceReportOpts {
                 match format {
                     "json" => ReportFormat::Json,
                     "text" => ReportFormat::Text,
-                    "fulljson" => ReportFormat::FullJson,
                     f => {
                         return Err(Error::WithMessage(format!(
                             "Unsupported format: {}. Supported are: json|text|fulljson",
@@ -91,7 +89,6 @@ impl ResourceReportOpts {
 pub enum ReportFormat {
     Json,
     Text,
-    FullJson,
 }
 
 //------------ ResourceReporter ---------------------------------------------
@@ -148,9 +145,6 @@ impl<'a> ResourceReporter<'a> {
                     ResourceReporter::new(&announcements, rpki_stats.vrps());
                 let res = reporter.analyse(options.scope());
                 print!("{}", res)
-            }
-            ReportFormat::FullJson => {
-                todo!("full report json")
             }
         }
 

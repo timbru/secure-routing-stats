@@ -1,5 +1,5 @@
 use crate::inputs::{
-    announcements::Announcement, ip::IpRange, vrps::ValidatedRoaPayload,
+    announcements::Announcement, ip::IpRange, rpki_stats::ValidatedRoaPayload,
 };
 use std::fmt;
 use std::fmt::Display;
@@ -155,7 +155,7 @@ mod tests {
 
     use std::str::FromStr;
 
-    use crate::inputs::vrps::vrp;
+    use crate::inputs::rpki_stats::vrp;
 
     fn ann(s: &str) -> Announcement {
         Announcement::from_str(s).unwrap()
