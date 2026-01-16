@@ -106,6 +106,20 @@ impl AsnRange {
     pub fn is_empty(&self) -> bool {
         false
     }
+
+    /// Convert this to a range compatible with intervaltree
+    ///
+    /// NOTE: intervaltree treats the max value as 'until'. Because of
+    /// this we need to cheat a bit with regards to u32::MAX.
+    pub fn range_for_intervaltree(&self) -> std::ops::Range<u32> {
+        let start = self.min.val;
+        let end = if self.max.val == u32::MAX {
+            u32::MAX
+        } else {
+            self.max.val + 1
+        };
+        std::ops::Range { start, end }
+    }
 }
 
 impl FromStr for AsnRange {
@@ -141,15 +155,6 @@ impl Serialize for AsnRange {
         S: Serializer,
     {
         self.to_string().serialize(serializer)
-    }
-}
-
-impl From<&AsnRange> for std::ops::Range<u32> {
-    fn from(asn_range: &AsnRange) -> Self {
-        std::ops::Range {
-            start: asn_range.min.val,
-            end: asn_range.max.val,
-        }
     }
 }
 
