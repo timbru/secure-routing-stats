@@ -283,8 +283,9 @@ impl AsnDelegation {
 }
 
 impl AsnDelegation {
-    pub fn to_range(&self) -> std::ops::Range<u32> {
-        (&self.range).into()
+    /// Convert this to a range compatible with intervaltree
+    pub fn range_for_intervaltree(&self) -> std::ops::Range<u32> {
+        self.range.range_for_intervaltree()
     }
 
     /// Return assigned ASNs only
@@ -319,7 +320,7 @@ impl AsnDelegation {
                     let cc = cc_str.to_string();
                     let min = Asn::from_str(min_str)?;
                     let number = u32::from_str(amount_str)?;
-                    let max = Asn::from(number + min.as_ref());
+                    let max = Asn::from(number + min.as_ref() - 1);
                     let range = AsnRange::new(min, max);
 
                     Ok(Some(AsnDelegation {
@@ -365,7 +366,9 @@ impl AsnDelegations {
     pub fn build(delegations: Vec<AsnDelegation>) -> Self {
         let tree = delegations
             .into_iter()
-            .map(|delegation| (delegation.to_range(), delegation))
+            .map(|delegation| {
+                (delegation.range_for_intervaltree(), delegation)
+            })
             .collect();
 
         Self { tree }
