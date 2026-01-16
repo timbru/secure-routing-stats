@@ -3,12 +3,17 @@ extern crate clap;
 extern crate derive_more;
 extern crate secure_routing_stats;
 
+use core::fmt;
+
 use clap::{App, Arg, SubCommand};
 
 use secure_routing_stats::{
-    report::roas::{
-        resources::{self, ResourceReportOpts, ResourceReporter},
-        world::{self, WorldStatsOpts, WorldStatsReporter},
+    report::{
+        aspas::{AspaStatOpts, SignedAspaStatsRegional},
+        roas::{
+            resources::{self, ResourceReportOpts, ResourceReporter},
+            world::{self, WorldStatsOpts, WorldStatsReporter},
+        },
     },
     server::{self, ServerOpts, StatsApp},
 };
@@ -30,6 +35,14 @@ async fn main() {
                     ResourceReporter::execute(&opts)
                         .map_err(Error::ResourceReportError)
                 }
+                Options::AspaStats(opts) => {
+                    let stats = SignedAspaStatsRegional::analyse(
+                        opts.delegations,
+                        opts.rpki_stats,
+                    );
+                    println!("{stats}");
+                    Ok(())
+                }
                 Options::Daemon(opts) => {
                     StatsApp::run(&opts).await.map_err(Error::DaemonError)
                 }
@@ -48,6 +61,7 @@ async fn main() {
 enum Options {
     WorldStats(WorldStatsOpts),
     ResourceStats(ResourceReportOpts),
+    AspaStats(AspaStatOpts),
     Daemon(ServerOpts),
 }
 
@@ -139,6 +153,26 @@ impl Options {
                     ),
             )
             .subcommand(
+                SubCommand::with_name("aspa")
+                    .about("Report ASPA adoption")
+                    .arg(
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
+                            .value_name("FILE")
+                            .help("Validated RPKI stats in routinator style JSON.")
+                            .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("delegations")
+                            .short("d")
+                            .long("delegations")
+                            .value_name("FILE")
+                            .help("Delegation stats (NRO extended delegated stats format).")
+                            .required(true),
+                    )
+            )
+            .subcommand(
                 SubCommand::with_name("daemon")
                     .about("Run as an HTTP server")
                     .arg(
@@ -174,6 +208,10 @@ impl Options {
         } else if let Some(matches) = matches.subcommand_matches("resources")
         {
             Ok(Options::ResourceStats(ResourceReportOpts::parse(matches)?))
+        } else if let Some(matches) = matches.subcommand_matches("aspa") {
+            Ok(Options::AspaStats(
+                AspaStatOpts::parse(matches).map_err(Error::msg)?,
+            ))
         } else if let Some(matches) = matches.subcommand_matches("daemon") {
             Ok(Options::Daemon(ServerOpts::parse(matches)?))
         } else {
@@ -200,7 +238,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn msg(s: &str) -> Self {
+    pub fn msg(s: impl fmt::Display) -> Self {
         Error::WithMessage(s.to_string())
     }
 }
