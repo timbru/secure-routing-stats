@@ -1,0 +1,159 @@
+<!--
+
+Copyright (c) 2018, NLnet Labs. All rights reserved.
+
+This software is open source.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+Neither the name of the NLNET LABS nor the names of its contributors may
+be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-->
+<!DOCTYPE html>
+
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <link href="/ui/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/ui/css/d3.geomap.css" rel="stylesheet">
+</head>
+
+
+<body class="p-4">
+
+  <div class="container-fluid">
+    <div id="vuefied" class="row">
+      <div class="col-12 col-lg-8">
+        <form class="form-inline flex-row-reverse mr-3">
+          <select v-model="mapColumn" @change="updateMap" class="form-control">
+            <option value="coverage">Coverage</option>
+          </select>
+        </form>
+        <div id="map"></div>
+        <div class="mt-4 text-center text-muted">[[mapColumnDetails]]</div>
+      </div>
+
+      <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">[[ modalTitle ]]</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body" v-html="modalContent">
+
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script src="/ui/js/vue.min.js"></script>
+  <script src="/ui/js/axios.min.js"></script>
+  <script src="/ui/js/d3.geomap.dependencies.min.js"></script>
+  <script src="/ui/js/d3.geomap.min.js"></script>
+  <script src="/ui/js/jquery-3.3.1.min.js"></script>
+  <script src="/ui/js/bootstrap.min.js"></script>
+  <script type="text/javascript">
+    var rpkiWorldCache = null;
+
+    var rpkiCreateMap = function (column) {
+      d3.select('#map').select('svg').remove();
+      var map = d3.geomap.choropleth()
+        .geofile('/ui/json/countries_with_iso2.json')
+        .colors(colorbrewer.Greens[9])
+        .column(column)
+        .format(function (d) {
+          return d3.format(',.1f')(d) + '%';
+        })
+        .legend(true)
+        .unitId('iso2');
+
+      if (!rpkiWorldCache) {
+        d3.csv('/rpki-stats-api/world-aspas.csv', function (error, data) {
+          map.draw(d3.select('#map').datum(data));
+          rpkiWorldCache = data;
+        });
+      } else {
+        map.draw(d3.select('#map').datum(rpkiWorldCache));
+      }
+      return map;
+    }
+
+    var app = new Vue({
+      el: '#vuefied',
+      delimiters: ['[[', ']]'],
+      data: {
+        map: null,
+        mapColumn: 'coverage',
+        scope: '',
+        results: null,
+        modalTitle: 'Details',
+        modalContent: ''
+      },
+      computed: {
+        mapColumnDetails: function () {
+          var mapping = {
+            'coverage': 'The fraction of registered ASNs for which an ASPA object was created.',
+          }
+          return mapping[this.mapColumn];
+        }
+      },
+      created() {
+        var self = this;
+        this.map = rpkiCreateMap(self.mapColumn);
+        var drawTimeout = -1;
+        window.addEventListener('resize', function () {
+          window.clearTimeout(drawTimeout);
+          drawTimeout = window.setTimeout(function () {
+            self.map = rpkiCreateMap(self.mapColumn);
+          }, 200);
+        });
+        $('#detailsModal').modal('hide');
+        if (window.location.search.indexOf('?') === 0) {
+          this.scope = window.location.search.substr(1);
+          this.analyse();
+        }
+      },
+      methods: {
+        updateMap: function () {
+          this.map.column(this.mapColumn).update();
+        },
+      }
+    })
+  </script>
+</body>
+
+</html>

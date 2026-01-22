@@ -69,6 +69,12 @@ pub enum Region {
     Country(String),
 }
 
+impl Region {
+    pub fn is_country(&self) -> bool {
+        matches!(self, Region::Registry(_))
+    }
+}
+
 impl fmt::Display for Region {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
