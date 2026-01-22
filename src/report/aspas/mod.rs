@@ -1,7 +1,6 @@
 //! Analyse ASPA stats
 
-use core::fmt;
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, fmt, fmt::Write, path::PathBuf};
 
 use clap::ArgMatches;
 
@@ -52,8 +51,8 @@ pub struct SignedAspaStatsRegional {
 
 impl SignedAspaStatsRegional {
     pub fn analyse(
-        delegations: AsnDelegations,
-        rpki_stats: RpkiStats,
+        delegations: &AsnDelegations,
+        rpki_stats: &RpkiStats,
     ) -> Self {
         let mut signed_aspa_stats: HashMap<Region, SignedAspaStats> =
             HashMap::new();
@@ -96,6 +95,43 @@ impl SignedAspaStatsRegional {
             stats: signed_aspa_stats,
         }
     }
+
+    pub fn to_csv(&self) -> String {
+        let mut s = String::new();
+
+        writeln!(s, "iso2,coverage").unwrap();
+
+        let countries = self.get_sorted_countries();
+
+        for country in countries {
+            if let Some(reg_stats) =
+                self.stats.get(&Region::Country(country.clone()))
+            {
+                writeln!(
+                    s,
+                    "{}, {}",
+                    country,
+                    reg_stats.fraction_signed() * 100_f64
+                )
+                .unwrap();
+            }
+        }
+
+        s
+    }
+
+    fn get_sorted_countries(&self) -> Vec<String> {
+        let mut countries: Vec<String> = self
+            .stats
+            .keys()
+            .flat_map(|region| match region {
+                Region::Country(country) => Some(country.clone()),
+                _ => None,
+            })
+            .collect();
+        countries.sort();
+        countries
+    }
 }
 
 impl fmt::Display for SignedAspaStatsRegional {
@@ -120,17 +156,7 @@ impl fmt::Display for SignedAspaStatsRegional {
             }
         }
 
-        let mut countries: Vec<String> = self
-            .stats
-            .keys()
-            .flat_map(|region| match region {
-                Region::Country(country) => Some(country.clone()),
-                _ => None,
-            })
-            .collect();
-        countries.sort();
-
-        for country in countries {
+        for country in self.get_sorted_countries() {
             if let Some(reg_stats) =
                 self.stats.get(&Region::Country(country.clone()))
             {
@@ -189,7 +215,8 @@ mod tests {
             RpkiStats::from_routinator_file(&path).unwrap()
         };
 
-        let stats = SignedAspaStatsRegional::analyse(delegations, rpki_stats);
+        let stats =
+            SignedAspaStatsRegional::analyse(&delegations, &rpki_stats);
         let world_stats = stats.stats.get(&Region::World).unwrap();
         assert_eq!(15, world_stats.aspas);
     }

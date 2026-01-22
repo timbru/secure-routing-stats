@@ -12,6 +12,8 @@ use tower_http::services::ServeDir;
 
 use clap::ArgMatches;
 
+use crate::inputs::delegations::AsnDelegations;
+use crate::report::aspas::SignedAspaStatsRegional;
 use crate::{
     inputs::{
         announcements::{self, Announcements},
@@ -59,6 +61,7 @@ pub struct Sources {
     announcements: Announcements,
     rpki_stats: RpkiStats,
     delegations: IpDelegations,
+    asn_delegations: AsnDelegations,
 }
 
 #[derive(Debug)]
@@ -71,11 +74,13 @@ impl StatsServer {
         let announcements = Announcements::from_ris(&opts.announcements)?;
         let rpki_stats = RpkiStats::from_routinator_file(&opts.rpki_stats)?;
         let delegations = IpDelegations::from_file(&opts.delegations)?;
+        let asn_delegations = AsnDelegations::from_file(&opts.delegations)?;
 
         let sources = Sources {
             announcements,
             rpki_stats,
             delegations,
+            asn_delegations,
         };
 
         Ok(StatsServer { sources })
@@ -103,6 +108,13 @@ impl StatsApp {
                 get({
                     let state = Arc::clone(&state);
                     move || Self::world_csv(state)
+                }),
+            )
+            .route(
+                "/rpki-stats-api/world-aspas.csv",
+                get({
+                    let state = Arc::clone(&state);
+                    move || Self::world_aspas(state)
                 }),
             )
             .route(
@@ -157,6 +169,14 @@ impl StatsApp {
         let stats = reporter.analyse();
 
         stats.to_csv()
+    }
+
+    async fn world_aspas(state: Arc<StatsServer>) -> String {
+        SignedAspaStatsRegional::analyse(
+            &state.sources.asn_delegations,
+            &state.sources.rpki_stats,
+        )
+        .to_csv()
     }
 }
 

@@ -46,6 +46,7 @@ RPKI_STATS_TARGET="$DATE_DIR/rpki-stats.json"
 
 WORLD_TEXT_TARGET="$DATE_DIR/world-stats.txt"
 WORLD_JSON_TARGET="$DATE_DIR/world-stats.json"
+ASPA_TEXT_TARGET="$DATE_DIR/world-aspa.csv"
 
 # Download and unpack new sources
 [ -f $RIS_v4_TARGET ] || curl -s -o $RIS_v4_GZ_TARGET $RIS_v4_SOURCE 
@@ -59,6 +60,9 @@ WORLD_JSON_TARGET="$DATE_DIR/world-stats.json"
 # Get world stats text and json
 [ -f  $WORLD_TEXT_TARGET ] || $STATS_BIN world --announcements $RIS_v4_TARGET $RIS_v6_TARGET --rpki $RPKI_STATS_TARGET --delegations $NRO_TARGET --format text > $WORLD_TEXT_TARGET
 [ -f $WORLD_JSON_TARGET ] || $STATS_BIN world --announcements $RIS_v4_TARGET $RIS_v6_TARGET --rpki $RPKI_STATS_TARGET --delegations $NRO_TARGET --format json > $WORLD_JSON_TARGET
+
+# Get world ASPA CSV
+[ -f $ASPA_TEXT_TARGET ] || $STATS_BIN aspa --rpki $RPKI_STATS_TARGET --delegations $NRO_TARGET > $ASPA_TEXT_TARGET
 
 # Restart the secure routing stats deamon - we need to RUN the deamon
 # because it uses server side parsing to show details for specific resources

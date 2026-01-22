@@ -37,8 +37,8 @@ async fn main() {
                 }
                 Options::AspaStats(opts) => {
                     let stats = SignedAspaStatsRegional::analyse(
-                        opts.delegations,
-                        opts.rpki_stats,
+                        &opts.delegations,
+                        &opts.rpki_stats,
                     );
                     println!("{stats}");
                     Ok(())
