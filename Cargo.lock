@@ -544,7 +544,7 @@ checksum = "a50f4cf475b65d88e057964e0e9bb1f0aa9bbb2036dc65c64596b42932536984"
 
 [[package]]
 name = "secure_routing_stats"
-version = "0.3.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "chrono",

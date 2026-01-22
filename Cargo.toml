@@ -1,6 +1,6 @@
 [package]
 name = "secure_routing_stats"
-version = "0.3.0"
+version = "0.2.0"
 authors = ["Tim Bruijnzeels <tim.bruijnzeels@gmail.com>"]
 edition = "2021"
 
