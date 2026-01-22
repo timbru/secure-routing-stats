@@ -220,11 +220,11 @@ impl CountryStats {
 
         for cc in self.stats.keys() {
             let cs = &self.stats[&cc.to_string()];
-            if cc != "all" {
-                if let Some(quality) = cs.f_quality() {
-                    writeln!(&mut s, "          ['{}', {}],", cc, quality)
-                        .unwrap();
-                }
+            if cc != "all"
+                && let Some(quality) = cs.f_quality()
+            {
+                writeln!(&mut s, "          ['{}', {}],", cc, quality)
+                    .unwrap();
             }
         }
         s
@@ -235,11 +235,10 @@ impl CountryStats {
 
         for cc in self.stats.keys() {
             let cs = &self.stats[&cc.to_string()];
-            if cc != "all" {
-                if let Some(seen) = cs.f_seen() {
-                    writeln!(&mut s, "          ['{}', {}],", cc, seen)
-                        .unwrap();
-                }
+            if cc != "all"
+                && let Some(seen) = cs.f_seen()
+            {
+                writeln!(&mut s, "          ['{}', {}],", cc, seen).unwrap();
             }
         }
         s
@@ -358,7 +357,7 @@ impl WorldStatsOpts {
                         return Err(Error::WithMessage(format!(
                             "Unsupported format: {}. Supported are: json|html|text",
                             f
-                        )))
+                        )));
                     }
                 }
             } else {
