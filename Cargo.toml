@@ -2,7 +2,7 @@
 name = "secure_routing_stats"
 version = "0.2.0"
 authors = ["Tim Bruijnzeels <tim.bruijnzeels@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 axum         = "0.7.5"
