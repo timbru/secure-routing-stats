@@ -1,15 +1,11 @@
+use std::{
+    cmp, collections::HashMap, fmt, net, num::ParseIntError, ops::Range,
+    str::FromStr,
+};
+
+use serde::{Deserialize, Serialize, Serializer, de};
+
 use intervaltree::IntervalTree;
-use serde::de;
-use serde::Deserialize;
-use serde::Serialize;
-use serde::Serializer;
-use std::cmp;
-use std::collections::HashMap;
-use std::fmt;
-use std::net;
-use std::num::ParseIntError;
-use std::ops::Range;
-use std::str::FromStr;
 
 // https://tools.ietf.org/html/rfc4291#section-2.5.5
 const IPV4_IN_IPV6: u128 = 0xffff_0000_0000;
@@ -109,7 +105,10 @@ impl FromStr for IpAddress {
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct IpRange {
+    /// The first address included in this range
     min: IpAddress,
+
+    /// The last address included in this range
     max: IpAddress,
 }
 
@@ -118,7 +117,9 @@ impl IpRange {
         min: IpAddress,
         max: IpAddress,
     ) -> Result<Self, IpRangeError> {
-        if min.value > max.value {
+        if min.ip_address_family() != max.ip_address_family() {
+            Err(IpRangeError::AddressFamilyMismatch)
+        } else if min.value > max.value {
             Err(IpRangeError::MinExceedsMax)
         } else {
             Ok(IpRange { min, max })
@@ -157,12 +158,30 @@ impl IpRange {
         self.min.value == lower_bound && self.max.value == upper_bound
     }
 
-    #[allow(clippy::nonminimal_bool)]
+    /// Returns the IpAddressFamily for this.
+    pub fn ip_address_family(&self) -> IpAddressFamily {
+        // Create ensures that the address family is the same for min and max
+        self.min.ip_address_family()
+    }
+
+    /// Returns the number of IpAddresses contained in this range
+    pub fn size(&self) -> u128 {
+        self.max.value - self.min.value + 1
+    }
+
+    /// Returns true if the ranges have any overlap
     pub fn intersects(&self, other: IpRange) -> bool {
         (self.min.value <= other.min.value
             && self.max.value >= other.min.value)
             || (self.min.value > other.min.value
                 && self.min.value <= other.max.value)
+    }
+
+    /// Returns true if the ranges are adjacent.
+    /// i.e. one range ends at the IpAddres before the other begins.
+    pub fn is_adjacent(&self, other: IpRange) -> bool {
+        self.min.value == other.max.value + 1
+            || self.max.value + 1 == other.min.value
     }
 
     pub fn contains(&self, other: &Range<u128>) -> bool {
@@ -224,6 +243,21 @@ impl From<&Range<u128>> for IpRange {
         let min = IpAddress { value: r.start };
         let max = IpAddress { value: r.end };
         IpRange { min, max }
+    }
+}
+
+impl Ord for IpRange {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.min
+            .value
+            .cmp(&other.min.value)
+            .then(self.max.value.cmp(&other.max.value))
+    }
+}
+
+impl PartialOrd for IpRange {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -340,15 +374,19 @@ impl IpResourceSet {
     }
 
     // Returns the intersecting IpRanges as the left return value, and non-intersecting as the right.
-    fn partition_intersecting(
+    fn partition_intersecting_or_adjacent(
         &self,
         ip_range: IpRange,
     ) -> (Vec<IpRange>, Vec<IpRange>) {
-        self.ranges.iter().partition(|i| i.intersects(ip_range))
+        self.ranges
+            .iter()
+            .partition(|i| i.intersects(ip_range) || i.is_adjacent(ip_range))
     }
 
+    /// Adds a range to the set, automatically joins intersecting ranges.
     pub fn add_ip_range(&mut self, ip_range: IpRange) {
-        let (intersecting, mut keep) = self.partition_intersecting(ip_range);
+        let (intersecting, mut keep) =
+            self.partition_intersecting_or_adjacent(ip_range);
 
         let mut min = ip_range.min.value;
         let mut max = ip_range.max.value;
@@ -361,6 +399,7 @@ impl IpResourceSet {
             IpRange::create(IpAddress::new(min), IpAddress::new(max));
 
         keep.extend(range_to_add);
+        keep.sort();
 
         self.ranges = keep;
     }
@@ -373,9 +412,16 @@ impl IpResourceSet {
         self.add_ip_range(range);
     }
 
+    pub fn remove_ip_resource_set(&mut self, other_set: &IpResourceSet) {
+        for range in other_set.ranges() {
+            self.remove_ip_range(*range);
+        }
+        self.ranges.sort();
+    }
+
     pub fn remove_ip_range(&mut self, range_to_remove: IpRange) {
         let (intersecting, mut keep) =
-            self.partition_intersecting(range_to_remove);
+            self.partition_intersecting_or_adjacent(range_to_remove);
 
         for intersecting_range in intersecting.iter() {
             if range_to_remove.max.value < intersecting_range.max.value {
@@ -395,6 +441,7 @@ impl IpResourceSet {
             }
         }
 
+        keep.sort();
         self.ranges = keep;
     }
 
@@ -453,6 +500,16 @@ impl Serialize for IpResourceSet {
         S: Serializer,
     {
         self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for IpResourceSet {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let string = String::deserialize(d)?;
+        IpResourceSet::from_str(&string).map_err(de::Error::custom)
     }
 }
 
@@ -555,6 +612,9 @@ pub enum IpRangeError {
     #[display(fmt = "Minimum value exceeds maximum value")]
     MinExceedsMax,
 
+    #[display(fmt = "Min and max value need to be the same address family")]
+    AddressFamilyMismatch,
+
     #[display(
         fmt = "Expected two IP addresses separated by '-' and no whitespace"
     )]
@@ -596,9 +656,7 @@ impl From<ParseIntError> for IpPrefixError {
 
 #[derive(Debug, Display)]
 pub enum IpResourceSetError {
-    #[display(
-        fmt = "Invalid syntax. Expect comma separated prefixes/ranges"
-    )]
+    #[display(fmt = "Invalid syntax. Expect comma separated prefixes/ranges")]
     InvalidSyntax,
 
     #[display(fmt = "{}", _0)]
@@ -626,32 +684,29 @@ impl From<IpPrefixError> for IpResourceSetError {
 mod tests {
     use super::*;
 
+    /// Returns an IpAddress for a &str. Panics if it can't be parsed.
+    fn ip_addr(s: &str) -> IpAddress {
+        IpAddress::from_str(s).unwrap()
+    }
+
+    /// Returns an IpRange for a &str. Panics if it can't be parsed.
+    fn ip_range(s: &str) -> IpRange {
+        IpRange::from_str(s).unwrap()
+    }
+
+    /// Returns an IpPrefix for a &str. Panics if it can't be parsed.
+    fn ip_prefix(s: &str) -> IpPrefix {
+        IpPrefix::from_str(s).unwrap()
+    }
+
     #[test]
     fn test_make_ipv4_from_string() {
-        assert_eq!(
-            IPV4_IN_IPV6,
-            IpAddress::from_str("0.0.0.0").unwrap().value
-        );
-        assert_eq!(
-            IPV4_IN_IPV6 | 255,
-            IpAddress::from_str("0.0.0.255").unwrap().value
-        );
-        assert_eq!(
-            IPV4_IN_IPV6 | 256,
-            IpAddress::from_str("0.0.1.0").unwrap().value
-        );
-        assert_eq!(
-            IPV4_IN_IPV6 | 65535,
-            IpAddress::from_str("0.0.255.255").unwrap().value
-        );
-        assert_eq!(
-            IPV4_IN_IPV6 | 65536,
-            IpAddress::from_str("0.1.0.0").unwrap().value
-        );
-        assert_eq!(
-            IPV4_IN_IPV6 | 16_777_216,
-            IpAddress::from_str("1.0.0.0").unwrap().value
-        );
+        assert_eq!(IPV4_IN_IPV6, ip_addr("0.0.0.0").value);
+        assert_eq!(IPV4_IN_IPV6 | 255, ip_addr("0.0.0.255").value);
+        assert_eq!(IPV4_IN_IPV6 | 256, ip_addr("0.0.1.0").value);
+        assert_eq!(IPV4_IN_IPV6 | 65535, ip_addr("0.0.255.255").value);
+        assert_eq!(IPV4_IN_IPV6 | 65536, ip_addr("0.1.0.0").value);
+        assert_eq!(IPV4_IN_IPV6 | 16_777_216, ip_addr("1.0.0.0").value);
 
         assert!(IpAddress::from_str("yadiyada").is_err());
         assert!(IpAddress::from_str("").is_err());
@@ -662,17 +717,15 @@ mod tests {
     fn test_is_ipv4() {
         assert_eq!(
             IpAddressFamily::Ipv4,
-            IpAddress::from_str("0.0.0.0").unwrap().ip_address_family()
+            ip_addr("0.0.0.0").ip_address_family()
         );
         assert_eq!(
             IpAddressFamily::Ipv4,
-            IpAddress::from_str("10.0.0.0").unwrap().ip_address_family()
+            ip_addr("10.0.0.0").ip_address_family()
         );
         assert_eq!(
             IpAddressFamily::Ipv4,
-            IpAddress::from_str("255.255.255.255")
-                .unwrap()
-                .ip_address_family()
+            ip_addr("255.255.255.255").ip_address_family()
         );
     }
 
@@ -686,53 +739,26 @@ mod tests {
 
     #[test]
     fn test_range_is_prefix() {
-        assert!(IpRange::from_str("10.0.0.0-10.0.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(IpRange::from_str("10.0.0.0-10.1.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(IpRange::from_str("0.0.0.0-1.255.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(IpRange::from_str("2.0.0.0-3.255.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(IpRange::from_str("0.0.0.0-3.255.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(IpRange::from_str("4.0.0.0-5.255.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(IpRange::from_str("4.0.0.0-4.0.0.0").unwrap().is_prefix());
-        assert!(!IpRange::from_str("0.0.0.255-0.0.1.255")
-            .unwrap()
-            .is_prefix());
-        assert!(!IpRange::from_str("2.0.0.0-5.255.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(!IpRange::from_str("0.0.0.0-2.255.255.255")
-            .unwrap()
-            .is_prefix());
-        assert!(!IpRange::from_str("10.0.0.0-10.0.255.254")
-            .unwrap()
-            .is_prefix());
-        assert!(!IpRange::from_str("10.0.0.0-10.0.254.255")
-            .unwrap()
-            .is_prefix());
-        assert!(!IpRange::from_str("0.0.0.128-0.0.1.127")
-            .unwrap()
-            .is_prefix());
+        assert!(ip_range("10.0.0.0-10.0.255.255").is_prefix());
+        assert!(ip_range("10.0.0.0-10.1.255.255").is_prefix());
+        assert!(ip_range("0.0.0.0-1.255.255.255").is_prefix());
+        assert!(ip_range("2.0.0.0-3.255.255.255").is_prefix());
+        assert!(ip_range("0.0.0.0-3.255.255.255").is_prefix());
+        assert!(ip_range("4.0.0.0-5.255.255.255").is_prefix());
+        assert!(ip_range("4.0.0.0-4.0.0.0").is_prefix());
+        assert!(!ip_range("0.0.0.255-0.0.1.255").is_prefix());
+        assert!(!ip_range("2.0.0.0-5.255.255.255").is_prefix());
+        assert!(!ip_range("0.0.0.0-2.255.255.255").is_prefix());
+        assert!(!ip_range("10.0.0.0-10.0.255.254").is_prefix());
+        assert!(!ip_range("10.0.0.0-10.0.254.255").is_prefix());
+        assert!(!ip_range("0.0.0.128-0.0.1.127").is_prefix());
     }
 
     #[test]
     fn test_range_from_start_and_number() {
-        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
-        let range_with_number = IpRange::from_min_and_number(
-            IpAddress::from_str("10.0.0.0").unwrap(),
-            256,
-        )
-        .unwrap();
+        let range = ip_range("10.0.0.0-10.0.0.255");
+        let range_with_number =
+            IpRange::from_min_and_number(ip_addr("10.0.0.0"), 256).unwrap();
 
         assert_eq!(range, range_with_number);
     }
@@ -748,21 +774,19 @@ mod tests {
 
     #[test]
     fn test_ip_range_intersects() {
-        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
-        let intersecting_start =
-            IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
-        let intersecting_end =
-            IpRange::from_str("10.0.0.255-10.1.0.0").unwrap();
-        let exact_overlap = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
-        let more_specific = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let range = ip_range("10.0.0.0-10.0.0.255");
+        let intersecting_start = ip_range("9.0.0.0-10.0.0.0");
+        let intersecting_end = ip_range("10.0.0.255-10.1.0.0");
+        let exact_overlap = ip_range("10.0.0.0-10.0.0.255");
+        let more_specific = ip_range("10.0.0.0-10.0.0.255");
 
         assert!(range.intersects(intersecting_start));
         assert!(range.intersects(intersecting_end));
         assert!(range.intersects(exact_overlap));
         assert!(range.intersects(more_specific));
 
-        let below = IpRange::from_str("1.0.0.0-9.255.255.255").unwrap();
-        let above = IpRange::from_str("10.0.1.0-19.255.255.255").unwrap();
+        let below = ip_range("1.0.0.0-9.255.255.255");
+        let above = ip_range("10.0.1.0-19.255.255.255");
 
         assert!(!range.intersects(below));
         assert!(!range.intersects(above));
@@ -770,67 +794,88 @@ mod tests {
 
     #[test]
     fn test_ip_resource_set_functions() {
-        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let range = ip_range("10.0.0.0-10.0.0.255");
 
         let mut set = IpResourceSet::empty();
         set.add_ip_range(range);
 
         assert_eq!(set.ranges, vec![range]);
 
-        let intersecting_start =
-            IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
-        let expected_combined_range =
-            IpRange::from_str("9.0.0.0-10.0.0.255").unwrap();
+        let intersecting_start = ip_range("9.0.0.0-10.0.0.0");
+        let expected_combined_range = ip_range("9.0.0.0-10.0.0.255");
         set.add_ip_range(intersecting_start);
         assert_eq!(set.ranges, vec![expected_combined_range]);
 
-        let other_range =
-            IpRange::from_str("192.168.0.0-192.168.0.1").unwrap();
+        let other_range = ip_range("192.168.0.0-192.168.0.1");
         set.add_ip_range(other_range);
         assert_eq!(set.ranges, vec![expected_combined_range, other_range]);
     }
 
     #[test]
     fn test_ip_resource_set_remove() {
-        let range = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let range = ip_range("10.0.0.0-10.0.0.255");
         let mut set = IpResourceSet::empty();
         set.add_ip_range(range);
 
-        let intersecting_start =
-            IpRange::from_str("9.0.0.0-10.0.0.0").unwrap();
+        let intersecting_start = ip_range("9.0.0.0-10.0.0.0");
         set.remove_ip_range(intersecting_start);
-        assert_eq!(
-            set.ranges,
-            vec![IpRange::from_str("10.0.0.1-10.0.0.255").unwrap()]
-        );
+        assert_eq!(set.ranges, vec![ip_range("10.0.0.1-10.0.0.255")]);
 
-        let start_left_hand = IpRange::from_str("10.0.0.1-10.0.0.2").unwrap();
+        let start_left_hand = ip_range("10.0.0.1-10.0.0.2");
         set.remove_ip_range(start_left_hand);
-        assert_eq!(
-            set.ranges,
-            vec![IpRange::from_str("10.0.0.3-10.0.0.255").unwrap()]
-        );
+        assert_eq!(set.ranges, vec![ip_range("10.0.0.3-10.0.0.255")]);
 
-        let middle = IpRange::from_str("10.0.0.10-10.0.0.11").unwrap();
+        let middle = ip_range("10.0.0.10-10.0.0.11");
         set.remove_ip_range(middle);
         assert_eq!(
             set.ranges,
             vec![
-                IpRange::from_str("10.0.0.12-10.0.0.255").unwrap(),
-                IpRange::from_str("10.0.0.3-10.0.0.9").unwrap()
+                ip_range("10.0.0.3-10.0.0.9"),
+                ip_range("10.0.0.12-10.0.0.255")
             ]
         );
 
-        let exact_match = IpRange::from_str("10.0.0.3-10.0.0.9").unwrap();
+        let exact_match = ip_range("10.0.0.3-10.0.0.9");
         set.remove_ip_range(exact_match);
-        assert_eq!(
-            set.ranges,
-            vec![IpRange::from_str("10.0.0.12-10.0.0.255").unwrap()]
-        );
+        assert_eq!(set.ranges, vec![ip_range("10.0.0.12-10.0.0.255")]);
 
-        let encompassing = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let encompassing = ip_range("10.0.0.0-10.0.0.255");
         set.remove_ip_range(encompassing);
         assert_eq!(set.ranges, vec![]);
+    }
+
+    #[test]
+    fn test_ip_resource_set_remove_other_set() {
+        let mut set = IpResourceSet::empty();
+        set.add_ip_range(ip_range("10.0.0.0-10.0.0.255"));
+        set.add_ip_range(ip_prefix("2001:DB8::/32").range);
+
+        let mut other_set = IpResourceSet::empty();
+        other_set.add_ip_range(ip_range("10.0.0.0-10.0.0.2"));
+        other_set.add_ip_range(ip_prefix("192.168.0.0/16").range);
+
+        let mut expected_remaining = IpResourceSet::empty();
+        expected_remaining.add_ip_range(ip_range("10.0.0.3-10.0.0.255"));
+        expected_remaining.add_ip_range(ip_prefix("2001:DB8::/32").range);
+
+        set.remove_ip_resource_set(&other_set);
+
+        assert_eq!(set, expected_remaining);
+    }
+
+    #[test]
+    fn test_ip_resource_set_serde() {
+        let mut set = IpResourceSet::empty();
+        set.add_ip_range(ip_range("10.0.0.0-10.0.0.255"));
+        set.add_ip_range(ip_prefix("192.168.0.0/16").range);
+        set.add_ip_range(ip_prefix("2001:DB8::/32").range);
+
+        let json = serde_json::to_string(&set).unwrap();
+
+        let set_deserialized: IpResourceSet =
+            serde_json::from_str(&json).unwrap();
+
+        assert_eq!(set, set_deserialized)
     }
 
     #[test]
@@ -852,22 +897,22 @@ mod tests {
         let vrps = vec![
             TypeWithRange {
                 asn: 0,
-                prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(),
+                prefix: ip_range("10.0.0.0-10.0.0.255"),
                 max_length: 24,
             },
             TypeWithRange {
                 asn: 2,
-                prefix: IpRange::from_str("10.0.0.0-10.0.0.255").unwrap(),
+                prefix: ip_range("10.0.0.0-10.0.0.255"),
                 max_length: 24,
             },
             TypeWithRange {
                 asn: 0,
-                prefix: IpRange::from_str("10.0.0.0-10.0.1.255").unwrap(),
+                prefix: ip_range("10.0.0.0-10.0.1.255"),
                 max_length: 24,
             },
             TypeWithRange {
                 asn: 0,
-                prefix: IpRange::from_str("10.0.2.0-10.0.3.255").unwrap(),
+                prefix: ip_range("10.0.2.0-10.0.3.255"),
                 max_length: 24,
             },
         ];
@@ -878,45 +923,30 @@ mod tests {
         }
         let tree = builder.build();
 
-        let search = IpRange::from_str("10.0.0.0-10.0.1.255").unwrap();
+        let search = ip_range("10.0.0.0-10.0.1.255");
 
         let matches = tree.matching_or_more_specific(&search);
         assert_eq!(3, matches.len());
 
-        let search = IpRange::from_str("10.0.0.0-10.0.0.255").unwrap();
+        let search = ip_range("10.0.0.0-10.0.0.255");
         let matches = tree.matching_or_more_specific(&search);
         assert_eq!(2, matches.len());
 
-        let search = IpRange::from_str("10.0.2.0-10.0.3.255").unwrap();
+        let search = ip_range("10.0.2.0-10.0.3.255");
         let matches = tree.matching_or_more_specific(&search);
         assert_eq!(1, matches.len());
 
-        let search = IpRange::from_str("10.0.0.0-10.0.0.2").unwrap();
+        let search = ip_range("10.0.0.0-10.0.0.2");
         let matches = tree.matching_or_less_specific(&search);
         assert_eq!(3, matches.len());
     }
 
     #[test]
     fn test_ip_prefix_length() {
-        assert_eq!(
-            IpPrefix::from_str("192.168.0.0/16").unwrap().nr_of_ips(),
-            65536
-        );
-        assert_eq!(
-            IpPrefix::from_str("192.168.0.0/24").unwrap().nr_of_ips(),
-            256
-        );
-        assert_eq!(
-            IpPrefix::from_str("192.168.0.0/32").unwrap().nr_of_ips(),
-            1
-        );
-        assert_eq!(
-            IpPrefix::from_str("2001:db8::/120").unwrap().nr_of_ips(),
-            256
-        );
-        assert_eq!(
-            IpPrefix::from_str("2001:db8::/128").unwrap().nr_of_ips(),
-            1
-        );
+        assert_eq!(ip_prefix("192.168.0.0/16").nr_of_ips(), 65536);
+        assert_eq!(ip_prefix("192.168.0.0/24").nr_of_ips(), 256);
+        assert_eq!(ip_prefix("192.168.0.0/32").nr_of_ips(), 1);
+        assert_eq!(ip_prefix("2001:db8::/120").nr_of_ips(), 256);
+        assert_eq!(ip_prefix("2001:db8::/128").nr_of_ips(), 1);
     }
 }

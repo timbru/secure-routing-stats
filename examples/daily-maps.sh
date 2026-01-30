@@ -4,8 +4,8 @@
 set -e
 
 # Local config
-BASE_DIR="/Users/tbruijnzeels/Development/secure-routing-stats/sources"
-STATS_BIN="/Users/tbruijnzeels/checkouts/secure-routing-stats/target/release/secure_routing_stats"
+BASE_DIR="${BASE_DIR:-/Users/tbruijnzeels/Development/secure-routing-stats/sources}"
+STATS_BIN="${STATS_BIN:-/Users/tbruijnzeels/checkouts/secure-routing-stats/target/release/secure_routing_stats}"
 
 #
 # This is script is meant to be run through cron by the stats
@@ -25,8 +25,8 @@ STATS_BIN="/Users/tbruijnzeels/checkouts/secure-routing-stats/target/release/sec
 #
 
 # Sources
-RIS_v4_SOURCE="http://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz"
-RIS_v6_SOURCE="http://www.ris.ripe.net/dumps/riswhoisdump.IPv6.gz"
+RIS_v4_SOURCE="https://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz"
+RIS_v6_SOURCE="https://www.ris.ripe.net/dumps/riswhoisdump.IPv6.gz"
 NRO_SOURCE="https://www.nro.net/wp-content/uploads/apnic-uploads/delegated-extended"
 RPKI_STATS_SOURCE="https://rpki-validator.ripe.net/json"
 

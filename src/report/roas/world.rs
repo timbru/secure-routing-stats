@@ -435,7 +435,7 @@ impl<'a> WorldStatsReporter<'a> {
         }
 
         eprintln!(
-            "done ({} ms {} anns {} vprs)",
+            "done ({} ms {} anns {} vrps)",
             now.elapsed().unwrap().as_millis(),
             nr_anns,
             nr_vrps
