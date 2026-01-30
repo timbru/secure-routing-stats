@@ -25,8 +25,8 @@ STATS_BIN="${STATS_BIN:-/Users/tbruijnzeels/checkouts/secure-routing-stats/targe
 #
 
 # Sources
-RIS_v4_SOURCE="http://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz"
-RIS_v6_SOURCE="http://www.ris.ripe.net/dumps/riswhoisdump.IPv6.gz"
+RIS_v4_SOURCE="https://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz"
+RIS_v6_SOURCE="https://www.ris.ripe.net/dumps/riswhoisdump.IPv6.gz"
 NRO_SOURCE="https://www.nro.net/wp-content/uploads/apnic-uploads/delegated-extended"
 RPKI_STATS_SOURCE="https://rpki-validator.ripe.net/json"
 
