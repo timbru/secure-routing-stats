@@ -4,8 +4,8 @@
 set -e
 
 # Local config
-BASE_DIR="/Users/tbruijnzeels/Development/secure-routing-stats/sources"
-STATS_BIN="/Users/tbruijnzeels/checkouts/secure-routing-stats/target/release/secure_routing_stats"
+BASE_DIR="${BASE_DIR:-/Users/tbruijnzeels/Development/secure-routing-stats/sources}"
+STATS_BIN="${STATS_BIN:-/Users/tbruijnzeels/checkouts/secure-routing-stats/target/release/secure_routing_stats}"
 
 #
 # This is script is meant to be run through cron by the stats
