@@ -2,10 +2,12 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
-use serde::de;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de;
+
+pub const AS_0: Asn = Asn { val: 0 };
 
 //------------ Asn ----------------------------------------------------------
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]

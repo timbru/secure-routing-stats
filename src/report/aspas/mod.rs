@@ -1,12 +1,17 @@
 //! Analyse ASPA stats
 
-use std::{collections::HashMap, fmt, fmt::Write, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::{self, Write},
+    path::PathBuf,
+};
 
 use clap::ArgMatches;
 
 use crate::{
     error::Error,
     inputs::{
+        asn::{AS_0, Asn},
         delegations::{AsnDelegations, DelegationState, Region, Registry},
         rpki_stats::RpkiStats,
     },
@@ -18,16 +23,49 @@ pub struct SignedAspaStats {
     /// Number of registered ASNs
     asns: usize,
 
-    /// Number of customer ASNs with ASPA
-    aspas: usize,
+    /// Number of ASPAs (should be one per customer AS)
+    nr: usize,
+
+    /// Number of AS0 ASPAs
+    nr_as0: usize,
+
+    /// Number of AS0 mixed ASPAs
+    nr_as0_mix: usize,
 }
 
 impl SignedAspaStats {
     pub fn fraction_signed(&self) -> f64 {
         if self.asns > 0 {
-            self.aspas as f64 / self.asns as f64
+            self.nr as f64 / self.asns as f64
         } else {
             0_f64
+        }
+    }
+
+    pub fn fraction_as0(&self) -> f64 {
+        if self.asns > 0 {
+            self.nr_as0 as f64 / self.asns as f64
+        } else {
+            0_f64
+        }
+    }
+
+    pub fn fraction_as0_mixed(&self) -> f64 {
+        if self.asns > 0 {
+            self.nr_as0_mix as f64 / self.asns as f64
+        } else {
+            0_f64
+        }
+    }
+
+    pub fn add_aspa(&mut self, _customer: &Asn, providers: &HashSet<Asn>) {
+        self.nr += 1;
+        if providers.contains(&AS_0) {
+            if providers.len() == 1 {
+                self.nr_as0 += 1;
+            } else {
+                self.nr_as0_mix += 1;
+            }
         }
     }
 }
@@ -36,10 +74,12 @@ impl fmt::Display for SignedAspaStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}, {}, {:1}",
+            "{}, {}, {:1}, {}, {}",
             self.asns,
-            self.aspas,
-            self.fraction_signed() * 100_f64
+            self.nr,
+            self.fraction_signed() * 100_f64,
+            self.nr_as0,
+            self.nr_as0_mix
         )
     }
 }
@@ -54,8 +94,7 @@ impl SignedAspaStatsRegional {
         delegations: &AsnDelegations,
         rpki_stats: &RpkiStats,
     ) -> Self {
-        let mut signed_aspa_stats: HashMap<Region, SignedAspaStats> =
-            HashMap::new();
+        let mut stats: HashMap<Region, SignedAspaStats> = HashMap::new();
 
         // Count the number of ASNs in all regions first
         for delegation in delegations.all() {
@@ -66,22 +105,31 @@ impl SignedAspaStatsRegional {
                 let registry = delegation.registry();
                 let country = delegation.country();
 
-                signed_aspa_stats.entry(world).or_default().asns += number;
-                signed_aspa_stats.entry(registry).or_default().asns += number;
-                signed_aspa_stats.entry(country).or_default().asns += number;
+                stats.entry(world).or_default().asns += number;
+                stats.entry(registry).or_default().asns += number;
+                stats.entry(country).or_default().asns += number;
             }
         }
 
         // Go over all signed ASPAs and update the regional stats accordingly
-        for customer in rpki_stats.aspas().keys() {
+        for (customer, providers) in rpki_stats.aspas().iter() {
             if let Some(delegation) = delegations.matching(customer) {
                 let world = Region::World;
                 let registry = delegation.registry();
                 let country = delegation.country();
 
-                signed_aspa_stats.entry(world).or_default().aspas += 1;
-                signed_aspa_stats.entry(country).or_default().aspas += 1;
-                signed_aspa_stats.entry(registry).or_default().aspas += 1;
+                stats
+                    .entry(world)
+                    .or_default()
+                    .add_aspa(customer, providers);
+                stats
+                    .entry(country)
+                    .or_default()
+                    .add_aspa(customer, providers);
+                stats
+                    .entry(registry)
+                    .or_default()
+                    .add_aspa(customer, providers);
             } else {
                 eprintln!(
                     "warning: cannot find delegation for aspa for ASN: {}",
@@ -91,9 +139,7 @@ impl SignedAspaStatsRegional {
         }
 
         // for delegation in delegations.
-        SignedAspaStatsRegional {
-            stats: signed_aspa_stats,
-        }
+        SignedAspaStatsRegional { stats }
     }
 
     pub fn to_csv(&self) -> String {
@@ -139,7 +185,7 @@ impl fmt::Display for SignedAspaStatsRegional {
         let empty_stats = SignedAspaStats::default();
         let world = self.stats.get(&Region::World).unwrap_or(&empty_stats);
 
-        writeln!(f, "Region, ASNs, ASPAs, Percentage")?;
+        writeln!(f, "Region, ASNs, ASPAs, Percentage, AS0, AS0_mixed")?;
         writeln!(f, "world, {world}")?;
 
         for registry in [
@@ -218,6 +264,6 @@ mod tests {
         let stats =
             SignedAspaStatsRegional::analyse(&delegations, &rpki_stats);
         let world_stats = stats.stats.get(&Region::World).unwrap();
-        assert_eq!(15, world_stats.aspas);
+        assert_eq!(15, world_stats.nr);
     }
 }
