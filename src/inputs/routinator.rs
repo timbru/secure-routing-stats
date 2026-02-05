@@ -42,8 +42,7 @@ mod tests {
 
     #[test]
     fn parse_json() {
-        let json =
-            include_str!("../../test/20250112/routinator-shortened.json");
+        let json = include_str!("../../test/20250112/routinator-shortened.json");
         let stats: RoutinatorStatsJson = serde_json::from_str(json).unwrap();
         assert_eq!(12, stats.roas.len());
         assert_eq!(15, stats.aspas.len());

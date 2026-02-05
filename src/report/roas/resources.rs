@@ -12,9 +12,7 @@ use crate::{
         rpki_stats::{self, RpkiStats, ValidatedRoaPayload, Vrps},
     },
     report::{
-        roas::validation::{
-            ValidatedAnnouncement, ValidationState, VrpImpact,
-        },
+        roas::validation::{ValidatedAnnouncement, ValidationState, VrpImpact},
         scope::ScopeLimits,
     },
 };
@@ -69,7 +67,7 @@ impl ResourceReportOpts {
                         return Err(Error::WithMessage(format!(
                             "Unsupported format: {}. Supported are: json|text|fulljson",
                             f
-                        )))
+                        )));
                     }
                 }
             } else {
@@ -110,8 +108,7 @@ impl<'a> ResourceReporter<'a> {
         let mut anns_res = AnnouncementsResult::default();
         for ann in self.announcements.in_scope(scope) {
             let matching_roas = self.vrps.containing(ann.as_ref());
-            let validated =
-                ValidatedAnnouncement::create(ann, &matching_roas);
+            let validated = ValidatedAnnouncement::create(ann, &matching_roas);
             anns_res.add(validated);
         }
 
@@ -130,19 +127,16 @@ impl<'a> ResourceReporter<'a> {
 
     pub fn execute(options: &ResourceReportOpts) -> Result<(), Error> {
         let announcements = Announcements::from_ris(&options.announcements)?;
-        let rpki_stats =
-            RpkiStats::from_routinator_file(&options.rpki_stats)?;
+        let rpki_stats = RpkiStats::from_routinator_file(&options.rpki_stats)?;
 
         match options.format {
             ReportFormat::Json => {
-                let reporter =
-                    ResourceReporter::new(&announcements, rpki_stats.vrps());
+                let reporter = ResourceReporter::new(&announcements, rpki_stats.vrps());
                 let res = reporter.analyse(options.scope());
                 println!("{}", serde_json::to_string(&res)?)
             }
             ReportFormat::Text => {
-                let reporter =
-                    ResourceReporter::new(&announcements, rpki_stats.vrps());
+                let reporter = ResourceReporter::new(&announcements, rpki_stats.vrps());
                 let res = reporter.analyse(options.scope());
                 print!("{}", res)
             }

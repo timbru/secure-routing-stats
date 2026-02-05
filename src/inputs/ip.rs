@@ -1,7 +1,4 @@
-use std::{
-    cmp, collections::HashMap, fmt, net, num::ParseIntError, ops::Range,
-    str::FromStr,
-};
+use std::{cmp, collections::HashMap, fmt, net, num::ParseIntError, ops::Range, str::FromStr};
 
 use serde::{Deserialize, Serialize, Serializer, de};
 
@@ -35,12 +32,8 @@ impl IpAddress {
 
     pub fn to_net_ipaddr(&self) -> net::IpAddr {
         match self.ip_address_family() {
-            IpAddressFamily::Ipv4 => {
-                net::IpAddr::V4(net::Ipv4Addr::from(self.value as u32))
-            }
-            IpAddressFamily::Ipv6 => {
-                net::IpAddr::V6(net::Ipv6Addr::from(self.value))
-            }
+            IpAddressFamily::Ipv4 => net::IpAddr::V4(net::Ipv4Addr::from(self.value as u32)),
+            IpAddressFamily::Ipv6 => net::IpAddr::V6(net::Ipv6Addr::from(self.value)),
         }
     }
     pub fn ip_address_family(&self) -> IpAddressFamily {
@@ -113,10 +106,7 @@ pub struct IpRange {
 }
 
 impl IpRange {
-    pub fn create(
-        min: IpAddress,
-        max: IpAddress,
-    ) -> Result<Self, IpRangeError> {
+    pub fn create(min: IpAddress, max: IpAddress) -> Result<Self, IpRangeError> {
         if min.ip_address_family() != max.ip_address_family() {
             Err(IpRangeError::AddressFamilyMismatch)
         } else if min.value > max.value {
@@ -126,10 +116,7 @@ impl IpRange {
         }
     }
 
-    pub fn from_min_and_number(
-        min: IpAddress,
-        number: u128,
-    ) -> Result<Self, IpRangeError> {
+    pub fn from_min_and_number(min: IpAddress, number: u128) -> Result<Self, IpRangeError> {
         let value = min.value + number - 1;
         let max = IpAddress { value };
         Self::create(min, max)
@@ -140,20 +127,17 @@ impl IpRange {
         // https://github.com/RIPE-NCC/ipresource/blob/master/src/main/java/net/ripe/ipresource/IpRange.java
 
         // First get the size of the largest common denominator
-        let lead_in_common =
-            (self.min.value ^ self.max.value).leading_zeros();
+        let lead_in_common = (self.min.value ^ self.max.value).leading_zeros();
 
         // Lower bound is then derived by keeping all bits in common from the
         // min value, and setting the remainder to 0s. This has to match the
         // value for self.min.value itself for this to be a valid prefix
-        let lower_bound =
-            self.min.value & u128::MAX << (128 - lead_in_common);
+        let lower_bound = self.min.value & u128::MAX << (128 - lead_in_common);
 
         // Upper bound is then derived by keeping all the bits in common from
         // min value, and setting the remainder to 1s. This has to match the
         // value for self.max.value
-        let upper_bound =
-            lower_bound | ((1u128 << (128 - lead_in_common)) - 1);
+        let upper_bound = lower_bound | ((1u128 << (128 - lead_in_common)) - 1);
 
         self.min.value == lower_bound && self.max.value == upper_bound
     }
@@ -171,17 +155,14 @@ impl IpRange {
 
     /// Returns true if the ranges have any overlap
     pub fn intersects(&self, other: IpRange) -> bool {
-        (self.min.value <= other.min.value
-            && self.max.value >= other.min.value)
-            || (self.min.value > other.min.value
-                && self.min.value <= other.max.value)
+        (self.min.value <= other.min.value && self.max.value >= other.min.value)
+            || (self.min.value > other.min.value && self.min.value <= other.max.value)
     }
 
     /// Returns true if the ranges are adjacent.
     /// i.e. one range ends at the IpAddres before the other begins.
     pub fn is_adjacent(&self, other: IpRange) -> bool {
-        self.min.value == other.max.value + 1
-            || self.max.value + 1 == other.min.value
+        self.min.value == other.max.value + 1 || self.max.value + 1 == other.min.value
     }
 
     pub fn contains(&self, other: &Range<u128>) -> bool {
@@ -297,9 +278,7 @@ impl FromStr for IpPrefix {
             IpAddressFamily::Ipv6 => length,
         };
 
-        if full_length > 128
-            || full_length < (128 - min.value.trailing_zeros() as u8)
-        {
+        if full_length > 128 || full_length < (128 - min.value.trailing_zeros() as u8) {
             return Err(IpPrefixError::InvalidPrefixLength);
         }
 
@@ -385,8 +364,7 @@ impl IpResourceSet {
 
     /// Adds a range to the set, automatically joins intersecting ranges.
     pub fn add_ip_range(&mut self, ip_range: IpRange) {
-        let (intersecting, mut keep) =
-            self.partition_intersecting_or_adjacent(ip_range);
+        let (intersecting, mut keep) = self.partition_intersecting_or_adjacent(ip_range);
 
         let mut min = ip_range.min.value;
         let mut max = ip_range.max.value;
@@ -395,8 +373,7 @@ impl IpResourceSet {
             max = cmp::max(max, e.max.value);
         }
 
-        let range_to_add =
-            IpRange::create(IpAddress::new(min), IpAddress::new(max));
+        let range_to_add = IpRange::create(IpAddress::new(min), IpAddress::new(max));
 
         keep.extend(range_to_add);
         keep.sort();
@@ -420,8 +397,7 @@ impl IpResourceSet {
     }
 
     pub fn remove_ip_range(&mut self, range_to_remove: IpRange) {
-        let (intersecting, mut keep) =
-            self.partition_intersecting_or_adjacent(range_to_remove);
+        let (intersecting, mut keep) = self.partition_intersecting_or_adjacent(range_to_remove);
 
         for intersecting_range in intersecting.iter() {
             if range_to_remove.max.value < intersecting_range.max.value {
@@ -615,9 +591,7 @@ pub enum IpRangeError {
     #[display(fmt = "Min and max value need to be the same address family")]
     AddressFamilyMismatch,
 
-    #[display(
-        fmt = "Expected two IP addresses separated by '-' and no whitespace"
-    )]
+    #[display(fmt = "Expected two IP addresses separated by '-' and no whitespace")]
     MustUseDashNotation,
 
     #[display(fmt = "Contains invalid IP address: {}", _0)]
@@ -757,8 +731,7 @@ mod tests {
     #[test]
     fn test_range_from_start_and_number() {
         let range = ip_range("10.0.0.0-10.0.0.255");
-        let range_with_number =
-            IpRange::from_min_and_number(ip_addr("10.0.0.0"), 256).unwrap();
+        let range_with_number = IpRange::from_min_and_number(ip_addr("10.0.0.0"), 256).unwrap();
 
         assert_eq!(range, range_with_number);
     }
@@ -872,8 +845,7 @@ mod tests {
 
         let json = serde_json::to_string(&set).unwrap();
 
-        let set_deserialized: IpResourceSet =
-            serde_json::from_str(&json).unwrap();
+        let set_deserialized: IpResourceSet = serde_json::from_str(&json).unwrap();
 
         assert_eq!(set, set_deserialized)
     }

@@ -14,9 +14,7 @@ use std::str::FromStr;
 use crate::{
     inputs::{
         asn::{Asn, AsnError},
-        ip::{
-            IpPrefix, IpPrefixError, IpRange, IpRangeTree, IpRangeTreeBuilder,
-        },
+        ip::{IpPrefix, IpPrefixError, IpRange, IpRangeTree, IpRangeTreeBuilder},
     },
     report::{roas::validation::ValidatedAnnouncement, scope::ScopeLimits},
 };

@@ -28,24 +28,18 @@ async fn main() {
         Ok(option) => {
             let res = match option {
                 Options::WorldStats(opts) => {
-                    WorldStatsReporter::execute(&opts)
-                        .map_err(Error::WorldReportError)
+                    WorldStatsReporter::execute(&opts).map_err(Error::WorldReportError)
                 }
                 Options::ResourceStats(opts) => {
-                    ResourceReporter::execute(&opts)
-                        .map_err(Error::ResourceReportError)
+                    ResourceReporter::execute(&opts).map_err(Error::ResourceReportError)
                 }
                 Options::AspaStats(opts) => {
-                    let stats = SignedAspaStatsRegional::analyse(
-                        &opts.delegations,
-                        &opts.rpki_stats,
-                    );
+                    let stats =
+                        SignedAspaStatsRegional::analyse(&opts.delegations, &opts.rpki_stats);
                     println!("{stats}");
                     Ok(())
                 }
-                Options::Daemon(opts) => {
-                    StatsApp::run(&opts).await.map_err(Error::DaemonError)
-                }
+                Options::Daemon(opts) => StatsApp::run(&opts).await.map_err(Error::DaemonError),
             };
             match res {
                 Ok(()) => {}
@@ -170,7 +164,7 @@ impl Options {
                             .value_name("FILE")
                             .help("Delegation stats (NRO extended delegated stats format).")
                             .required(true),
-                    )
+                    ),
             )
             .subcommand(
                 SubCommand::with_name("daemon")
@@ -205,8 +199,7 @@ impl Options {
 
         if let Some(matches) = matches.subcommand_matches("world") {
             Ok(Options::WorldStats(WorldStatsOpts::parse(matches)?))
-        } else if let Some(matches) = matches.subcommand_matches("resources")
-        {
+        } else if let Some(matches) = matches.subcommand_matches("resources") {
             Ok(Options::ResourceStats(ResourceReportOpts::parse(matches)?))
         } else if let Some(matches) = matches.subcommand_matches("aspa") {
             Ok(Options::AspaStats(

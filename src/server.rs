@@ -6,7 +6,7 @@ use std::sync::Arc;
 use axum::extract::Query;
 use axum::extract::State;
 use axum::response::Redirect;
-use axum::{response::Json, routing::get, Router};
+use axum::{Router, response::Json, routing::get};
 
 use tower_http::services::ServeDir;
 
@@ -94,10 +94,7 @@ impl StatsApp {
         let state = Arc::new(StatsServer::create(opts)?);
 
         let app = Router::new()
-            .route(
-                "/",
-                get(|| async { Redirect::temporary("/ui/world.html") }),
-            )
+            .route("/", get(|| async { Redirect::temporary("/ui/world.html") }))
             .nest_service("/ui", ServeDir::new("ui"))
             .route(
                 "/rpki-stats-api/details",
@@ -138,8 +135,7 @@ impl StatsApp {
         State(state): State<Arc<StatsServer>>,
         scope_string: Query<ScopeQuery>,
     ) -> Json<ResourceReportResult> {
-        let limits = ScopeLimits::from_str(&scope_string.scope)
-            .unwrap_or(ScopeLimits::empty());
+        let limits = ScopeLimits::from_str(&scope_string.scope).unwrap_or(ScopeLimits::empty());
 
         let reporter = ResourceReporter::new(
             &state.sources.announcements,
@@ -172,11 +168,8 @@ impl StatsApp {
     }
 
     async fn world_aspas(state: Arc<StatsServer>) -> String {
-        SignedAspaStatsRegional::analyse(
-            &state.sources.asn_delegations,
-            &state.sources.rpki_stats,
-        )
-        .to_csv()
+        SignedAspaStatsRegional::analyse(&state.sources.asn_delegations, &state.sources.rpki_stats)
+            .to_csv()
     }
 }
 

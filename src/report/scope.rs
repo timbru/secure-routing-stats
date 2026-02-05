@@ -3,8 +3,7 @@ use std::str::FromStr;
 use crate::inputs::{
     asn::{Asn, AsnError, AsnRange, AsnSet},
     ip::{
-        IpAddress, IpAddressError, IpPrefix, IpPrefixError, IpRange,
-        IpRangeError, IpResourceSet,
+        IpAddress, IpAddressError, IpPrefix, IpPrefixError, IpRange, IpRangeError, IpResourceSet,
     },
 };
 

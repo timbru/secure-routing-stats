@@ -1,6 +1,4 @@
-use crate::inputs::{
-    announcements::Announcement, ip::IpRange, rpki_stats::ValidatedRoaPayload,
-};
+use crate::inputs::{announcements::Announcement, ip::IpRange, rpki_stats::ValidatedRoaPayload};
 use std::fmt;
 use std::fmt::Display;
 
@@ -40,10 +38,7 @@ impl ValidatedAnnouncement {
         &self.state
     }
 
-    fn derive_state(
-        ann: &Announcement,
-        vrps: &[&ValidatedRoaPayload],
-    ) -> ValidationState {
+    fn derive_state(ann: &Announcement, vrps: &[&ValidatedRoaPayload]) -> ValidationState {
         let mut state = ValidationState::NotFound;
 
         for vrp in vrps {
@@ -116,10 +111,7 @@ pub enum VrpImpact {
 
 impl VrpImpact {
     /// See https://krill.docs.nlnetlabs.nl/en/stable/manage-roas.html
-    pub fn evaluate(
-        vrp: &ValidatedRoaPayload,
-        anns: &[&Announcement],
-    ) -> Self {
+    pub fn evaluate(vrp: &ValidatedRoaPayload, anns: &[&Announcement]) -> Self {
         let mut seen = false;
         let mut most_specific_seen = 0;
 
@@ -172,26 +164,20 @@ mod tests {
 
         {
             // not found
-            let validated =
-                ValidatedAnnouncement::create(&ann, &[&vrp_not_fnd]);
+            let validated = ValidatedAnnouncement::create(&ann, &[&vrp_not_fnd]);
             assert_eq!(&ValidationState::NotFound, validated.state());
         }
 
         {
             // invalid_len
-            let validated = ValidatedAnnouncement::create(
-                &ann,
-                &[&vrp_inv_len, &vrp_inv_asn, &vrp_not_fnd],
-            );
+            let validated =
+                ValidatedAnnouncement::create(&ann, &[&vrp_inv_len, &vrp_inv_asn, &vrp_not_fnd]);
             assert_eq!(&ValidationState::InvalidLength, validated.state());
         }
 
         {
             // invalid asn
-            let validated = ValidatedAnnouncement::create(
-                &ann,
-                &[&vrp_inv_asn, &vrp_not_fnd],
-            );
+            let validated = ValidatedAnnouncement::create(&ann, &[&vrp_inv_asn, &vrp_not_fnd]);
             assert_eq!(&ValidationState::InvalidAsn, validated.state());
         }
 

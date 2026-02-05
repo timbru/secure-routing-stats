@@ -90,10 +90,7 @@ pub struct SignedAspaStatsRegional {
 }
 
 impl SignedAspaStatsRegional {
-    pub fn analyse(
-        delegations: &AsnDelegations,
-        rpki_stats: &RpkiStats,
-    ) -> Self {
+    pub fn analyse(delegations: &AsnDelegations, rpki_stats: &RpkiStats) -> Self {
         let mut stats: HashMap<Region, SignedAspaStats> = HashMap::new();
 
         // Count the number of ASNs in all regions first
@@ -150,16 +147,8 @@ impl SignedAspaStatsRegional {
         let countries = self.get_sorted_countries();
 
         for country in countries {
-            if let Some(reg_stats) =
-                self.stats.get(&Region::Country(country.clone()))
-            {
-                writeln!(
-                    s,
-                    "{}, {}",
-                    country,
-                    reg_stats.fraction_signed() * 100_f64
-                )
-                .unwrap();
+            if let Some(reg_stats) = self.stats.get(&Region::Country(country.clone())) {
+                writeln!(s, "{}, {}", country, reg_stats.fraction_signed() * 100_f64).unwrap();
             }
         }
 
@@ -195,17 +184,13 @@ impl fmt::Display for SignedAspaStatsRegional {
             Registry::Lacnic,
             Registry::RipeNcc,
         ] {
-            if let Some(reg_stats) =
-                self.stats.get(&Region::Registry(registry))
-            {
+            if let Some(reg_stats) = self.stats.get(&Region::Registry(registry)) {
                 writeln!(f, "{registry}, {reg_stats}")?;
             }
         }
 
         for country in self.get_sorted_countries() {
-            if let Some(reg_stats) =
-                self.stats.get(&Region::Country(country.clone()))
-            {
+            if let Some(reg_stats) = self.stats.get(&Region::Country(country.clone())) {
                 writeln!(f, "{country}, {reg_stats}")?;
             }
         }
@@ -225,13 +210,11 @@ impl AspaStatOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
         let rpki_stats_file = matches.value_of("rpki").unwrap();
         let rpki_stats =
-            RpkiStats::from_routinator_file(&PathBuf::from(rpki_stats_file))
-                .map_err(Error::msg)?;
+            RpkiStats::from_routinator_file(&PathBuf::from(rpki_stats_file)).map_err(Error::msg)?;
 
         let delegations_file = matches.value_of("delegations").unwrap();
         let delegations =
-            AsnDelegations::from_file(&PathBuf::from(delegations_file))
-                .map_err(Error::msg)?;
+            AsnDelegations::from_file(&PathBuf::from(delegations_file)).map_err(Error::msg)?;
 
         Ok(AspaStatOpts {
             rpki_stats,
@@ -256,13 +239,11 @@ mod tests {
         };
 
         let rpki_stats = {
-            let path =
-                PathBuf::from("test/20250112/routinator-shortened.json");
+            let path = PathBuf::from("test/20250112/routinator-shortened.json");
             RpkiStats::from_routinator_file(&path).unwrap()
         };
 
-        let stats =
-            SignedAspaStatsRegional::analyse(&delegations, &rpki_stats);
+        let stats = SignedAspaStatsRegional::analyse(&delegations, &rpki_stats);
         let world_stats = stats.stats.get(&Region::World).unwrap();
         assert_eq!(15, world_stats.nr);
     }

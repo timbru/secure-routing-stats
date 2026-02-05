@@ -10,12 +10,10 @@ use clap::ArgMatches;
 
 use crate::{
     inputs::{
-        announcements::Announcements, delegations::IpDelegations,
-        ip::IpResourceSetError, rpki_stats::RpkiStats,
+        announcements::Announcements, delegations::IpDelegations, ip::IpResourceSetError,
+        rpki_stats::RpkiStats,
     },
-    report::roas::validation::{
-        ValidatedAnnouncement, ValidationState, VrpImpact,
-    },
+    report::roas::validation::{ValidatedAnnouncement, ValidationState, VrpImpact},
 };
 
 //------------ CountryStat --------------------------------------------------
@@ -50,10 +48,7 @@ impl CountryStat {
     }
 
     fn total(&self) -> usize {
-        self.routes_valid
-            + self.routes_inv_l
-            + self.routes_inv_a
-            + self.routes_not_f
+        self.routes_valid + self.routes_inv_l + self.routes_inv_a + self.routes_not_f
     }
 
     fn covered(&self) -> usize {
@@ -185,13 +180,7 @@ impl CountryStats {
         for cc in self.stats.keys() {
             let cs = &self.stats[&cc.to_string()];
             if cc != "all" {
-                writeln!(
-                    &mut s,
-                    "          ['{}', {}],",
-                    cc,
-                    cs.f_adoption()
-                )
-                .unwrap();
+                writeln!(&mut s, "          ['{}', {}],", cc, cs.f_adoption()).unwrap();
             }
         }
         s
@@ -205,8 +194,7 @@ impl CountryStats {
         for cc in self.stats.keys() {
             let cs = &self.stats[&cc.to_string()];
             if cc != "all" {
-                writeln!(&mut s, "          ['{}', {}],", cc, cs.f_valid())
-                    .unwrap();
+                writeln!(&mut s, "          ['{}', {}],", cc, cs.f_valid()).unwrap();
             }
         }
         s
@@ -223,8 +211,7 @@ impl CountryStats {
             if cc != "all"
                 && let Some(quality) = cs.f_quality()
             {
-                writeln!(&mut s, "          ['{}', {}],", cc, quality)
-                    .unwrap();
+                writeln!(&mut s, "          ['{}', {}],", cc, quality).unwrap();
             }
         }
         s
@@ -259,8 +246,7 @@ impl CountryStats {
 
     pub fn to_csv(&self) -> String {
         let mut s = String::new();
-        writeln!(s, "iso2,coverage,accuracy,seen,too_permissive,unseen")
-            .unwrap();
+        writeln!(s, "iso2,coverage,accuracy,seen,too_permissive,unseen").unwrap();
 
         let countries = self.get_sorted_countries();
 
@@ -268,20 +254,14 @@ impl CountryStats {
             let coverage = country.stat.f_adoption();
             let accuracy = country.stat.f_quality().unwrap_or(0.);
             let seen = country.stat.f_seen().unwrap_or(0.);
-            let too_permissive =
-                country.stat.f_too_permissive().unwrap_or(0.);
+            let too_permissive = country.stat.f_too_permissive().unwrap_or(0.);
             let unseen = country.stat.f_unseen().unwrap_or(0.);
 
             if country.stat.has_adoption() {
                 writeln!(
                     s,
                     "{},{},{},{},{},{}",
-                    country.cc,
-                    coverage,
-                    accuracy,
-                    seen,
-                    too_permissive,
-                    unseen
+                    country.cc, coverage, accuracy, seen, too_permissive, unseen
                 )
                 .unwrap();
             }
@@ -416,10 +396,8 @@ impl<'a> WorldStatsReporter<'a> {
         eprint!("Start.....");
 
         for ann in self.announcements.all() {
-            let matching_roas =
-                self.rpki_stats.vrps().containing(ann.as_ref());
-            let validated =
-                ValidatedAnnouncement::create(ann, &matching_roas);
+            let matching_roas = self.rpki_stats.vrps().containing(ann.as_ref());
+            let validated = ValidatedAnnouncement::create(ann, &matching_roas);
             let cc = self.delegations.find_cc(ann.as_ref());
 
             country_stats.add_ann(&validated, cc);
@@ -445,20 +423,14 @@ impl<'a> WorldStatsReporter<'a> {
     }
 
     pub fn execute(options: &WorldStatsOpts) -> Result<(), Error> {
-        let announcements = Announcements::from_ris(&options.announcements)
-            .map_err(Error::msg)?;
+        let announcements = Announcements::from_ris(&options.announcements).map_err(Error::msg)?;
 
-        let rpki_stats = RpkiStats::from_routinator_file(&options.rpki_stats)
-            .map_err(Error::msg)?;
+        let rpki_stats =
+            RpkiStats::from_routinator_file(&options.rpki_stats).map_err(Error::msg)?;
 
-        let delegations = IpDelegations::from_file(&options.delegations)
-            .map_err(Error::msg)?;
+        let delegations = IpDelegations::from_file(&options.delegations).map_err(Error::msg)?;
 
-        let reporter = WorldStatsReporter::new(
-            &announcements,
-            &rpki_stats,
-            &delegations,
-        );
+        let reporter = WorldStatsReporter::new(&announcements, &rpki_stats, &delegations);
 
         let stats = reporter.analyse();
 

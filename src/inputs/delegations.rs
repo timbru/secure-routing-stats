@@ -14,8 +14,8 @@ use intervaltree::IntervalTree;
 use crate::inputs::{
     asn::{Asn, AsnError, AsnRange},
     ip::{
-        IpAddress, IpAddressError, IpPrefix, IpPrefixError, IpRange,
-        IpRangeError, IpRangeTree, IpRangeTreeBuilder,
+        IpAddress, IpAddressError, IpPrefix, IpPrefixError, IpRange, IpRangeError, IpRangeTree,
+        IpRangeTreeBuilder,
     },
 };
 
@@ -145,14 +145,11 @@ impl IpDelegation {
 
         let mut values = s.split(',');
 
-        let prefix =
-            values.next().ok_or_else(|| Error::missing("prefix", s))?;
+        let prefix = values.next().ok_or_else(|| Error::missing("prefix", s))?;
         let rir = values.next().ok_or_else(|| Error::missing("rir", s))?;
-        let _date_str =
-            values.next().ok_or_else(|| Error::missing("date", s))?;
+        let _date_str = values.next().ok_or_else(|| Error::missing("date", s))?;
         let cc_str = values.next().ok_or_else(|| Error::missing("cc", s))?;
-        let state_str =
-            values.next().ok_or_else(|| Error::missing("state", s))?;
+        let state_str = values.next().ok_or_else(|| Error::missing("state", s))?;
 
         let reg = Registry::from_str(rir)?;
         let cc = cc_str.to_string();
@@ -173,20 +170,13 @@ impl IpDelegation {
         } else {
             let mut values = s.split('|');
 
-            let reg_str =
-                values.next().ok_or_else(|| Error::missing("rir", s))?;
-            let cc_str =
-                values.next().ok_or_else(|| Error::missing("cc", s))?;
-            let inr_type_str =
-                values.next().ok_or_else(|| Error::missing("type", s))?;
-            let min_str =
-                values.next().ok_or_else(|| Error::missing("min", s))?;
-            let amount_str =
-                values.next().ok_or_else(|| Error::missing("amount", s))?;
-            let _date_str =
-                values.next().ok_or_else(|| Error::missing("date", s))?;
-            let state_str =
-                values.next().ok_or_else(|| Error::missing("state", s))?;
+            let reg_str = values.next().ok_or_else(|| Error::missing("rir", s))?;
+            let cc_str = values.next().ok_or_else(|| Error::missing("cc", s))?;
+            let inr_type_str = values.next().ok_or_else(|| Error::missing("type", s))?;
+            let min_str = values.next().ok_or_else(|| Error::missing("min", s))?;
+            let amount_str = values.next().ok_or_else(|| Error::missing("amount", s))?;
+            let _date_str = values.next().ok_or_else(|| Error::missing("date", s))?;
+            let state_str = values.next().ok_or_else(|| Error::missing("state", s))?;
 
             if inr_type_str != "ipv4" && inr_type_str != "ipv6" {
                 Err(Error::parse_error("unsupported inr type"))
@@ -301,20 +291,13 @@ impl AsnDelegation {
         } else {
             let mut values = s.split('|');
 
-            let reg_str =
-                values.next().ok_or_else(|| Error::missing("rir", s))?;
-            let cc_str =
-                values.next().ok_or_else(|| Error::missing("cc", s))?;
-            let inr_type_str =
-                values.next().ok_or_else(|| Error::missing("type", s))?;
-            let min_str =
-                values.next().ok_or_else(|| Error::missing("min", s))?;
-            let amount_str =
-                values.next().ok_or_else(|| Error::missing("amount", s))?;
-            let _date_str =
-                values.next().ok_or_else(|| Error::missing("date", s))?;
-            let state_str =
-                values.next().ok_or_else(|| Error::missing("state", s))?;
+            let reg_str = values.next().ok_or_else(|| Error::missing("rir", s))?;
+            let cc_str = values.next().ok_or_else(|| Error::missing("cc", s))?;
+            let inr_type_str = values.next().ok_or_else(|| Error::missing("type", s))?;
+            let min_str = values.next().ok_or_else(|| Error::missing("min", s))?;
+            let amount_str = values.next().ok_or_else(|| Error::missing("amount", s))?;
+            let _date_str = values.next().ok_or_else(|| Error::missing("date", s))?;
+            let state_str = values.next().ok_or_else(|| Error::missing("state", s))?;
 
             if inr_type_str != "asn" {
                 Err(Error::parse_error("unsupported inr type"))
@@ -372,9 +355,7 @@ impl AsnDelegations {
     pub fn build(delegations: Vec<AsnDelegation>) -> Self {
         let tree = delegations
             .into_iter()
-            .map(|delegation| {
-                (delegation.range_for_intervaltree(), delegation)
-            })
+            .map(|delegation| (delegation.range_for_intervaltree(), delegation))
             .collect();
 
         Self { tree }

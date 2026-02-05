@@ -52,16 +52,12 @@ impl RpkiStats {
 
 impl From<RoutinatorStatsJson> for RpkiStats {
     fn from(routinator: RoutinatorStatsJson) -> Self {
-        let generated =
-            DateTime::from_timestamp(routinator.metadata.generated, 0)
-                .unwrap();
+        let generated = DateTime::from_timestamp(routinator.metadata.generated, 0).unwrap();
 
         let payloads: Vec<ValidatedRoaPayload> = routinator
             .roas
             .into_iter()
-            .map(|roa| {
-                ValidatedRoaPayload::new(roa.asn, roa.prefix, roa.max_length)
-            })
+            .map(|roa| ValidatedRoaPayload::new(roa.asn, roa.prefix, roa.max_length))
             .collect();
 
         let vrps = Vrps::from_payloads(payloads);
@@ -265,13 +261,11 @@ mod tests {
     #[test]
     fn should_detect_number_of_most_specific_announcements() {
         assert_eq!(
-            vrp("AS65000, 192.168.0.0/20, 20")
-                .nr_most_specific_announcements(),
+            vrp("AS65000, 192.168.0.0/20, 20").nr_most_specific_announcements(),
             1
         );
         assert_eq!(
-            vrp("AS65000, 192.168.0.0/20, 24")
-                .nr_most_specific_announcements(),
+            vrp("AS65000, 192.168.0.0/20, 24").nr_most_specific_announcements(),
             16
         );
     }
