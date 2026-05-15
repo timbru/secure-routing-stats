@@ -10,6 +10,7 @@ chrono       = "0.4.42"
 clap         = "^2.23"
 derive_more  = "^0.13"
 intervaltree = "0.2.4"
+itertools    = "0.14.0"
 futures      = "0.1"
 serde        = { version = "^1.0", features = ["rc"] }
 serde_derive = "^1.0"

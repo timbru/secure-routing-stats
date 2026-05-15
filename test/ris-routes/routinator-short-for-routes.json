@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "generated": 1768224578,
+    "generatedTime": "2026-01-12T13:29:38Z"
+  },
+  "roas": [
+    { "asn": "AS13", "prefix": "10.0.0.0/24", "maxLength": 24, "ta": "apnic" },
+    { "asn": "AS44", "prefix": "10.0.1.0/24", "maxLength": 24, "ta": "apnic" }
+  ],
+  "routerKeys": [
+  ],
+  "aspas": [
+    { "customer": "AS1", "providers": ["AS0"], "ta": "ripe" },
+    { "customer": "AS12", "providers": ["AS1"], "ta": "ripe" },
+    { "customer": "AS14", "providers": ["AS12", "AS15"], "ta": "ripe" }
+  ]
+}

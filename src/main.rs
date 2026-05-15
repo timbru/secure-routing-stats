@@ -9,7 +9,7 @@ use clap::{App, Arg, SubCommand};
 
 use secure_routing_stats::{
     report::{
-        aspas::{AspaStatOpts, SignedAspaStatsRegional},
+        aspas::{AspaPathOpts, AspaPathResults, AspaStatOpts, SignedAspaStatsRegional},
         roas::{
             resources::{self, ResourceReportOpts, ResourceReporter},
             world::{self, WorldStatsOpts, WorldStatsReporter},
@@ -39,6 +39,11 @@ async fn main() {
                     println!("{stats}");
                     Ok(())
                 }
+                Options::AspaPath(opts) => {
+                    let result = AspaPathResults::analyse(opts.paths, opts.rpki_stats);
+                    println!("{result}");
+                    Ok(())
+                }
                 Options::Daemon(opts) => StatsApp::run(&opts).await.map_err(Error::DaemonError),
             };
             match res {
@@ -56,6 +61,7 @@ enum Options {
     WorldStats(WorldStatsOpts),
     ResourceStats(ResourceReportOpts),
     AspaStats(AspaStatOpts),
+    AspaPath(AspaPathOpts),
     Daemon(ServerOpts),
 }
 
@@ -167,6 +173,26 @@ impl Options {
                     ),
             )
             .subcommand(
+                SubCommand::with_name("aspa_path")
+                    .about("Report ASPA paths vs RIS paths")
+                    .arg(
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
+                            .value_name("FILE")
+                            .help("Validated RPKI stats in routinator style JSON.")
+                            .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("paths")
+                            .short("p")
+                            .long("paths")
+                            .value_name("FILE")
+                            .help("RIS paths from parguet file see ris_path.rs code for format!")
+                            .required(true),
+                    ),
+            )
+            .subcommand(
                 SubCommand::with_name("daemon")
                     .about("Run as an HTTP server")
                     .arg(
@@ -204,6 +230,10 @@ impl Options {
         } else if let Some(matches) = matches.subcommand_matches("aspa") {
             Ok(Options::AspaStats(
                 AspaStatOpts::parse(matches).map_err(Error::msg)?,
+            ))
+        } else if let Some(matches) = matches.subcommand_matches("aspa_path") {
+            Ok(Options::AspaPath(
+                AspaPathOpts::parse(matches).map_err(Error::msg)?,
             ))
         } else if let Some(matches) = matches.subcommand_matches("daemon") {
             Ok(Options::Daemon(ServerOpts::parse(matches)?))

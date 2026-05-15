@@ -258,6 +258,20 @@ impl IpPrefix {
     pub fn nr_of_ips(&self) -> u128 {
         self.range.max.value - self.range.min.value + 1
     }
+
+    pub fn ip_address_family(&self) -> IpAddressFamily {
+        self.range.ip_address_family()
+    }
+
+    /// Returns true if this is
+    /// IPv4 /8 up to /24
+    /// IPv6 /12 up to /48
+    pub fn has_routable_prefix_length(&self) -> bool {
+        match self.ip_address_family() {
+            IpAddressFamily::Ipv4 => self.length >= 8 && self.length <= 24,
+            IpAddressFamily::Ipv6 => self.length >= 12 && self.length <= 48,
+        }
+    }
 }
 
 impl FromStr for IpPrefix {
