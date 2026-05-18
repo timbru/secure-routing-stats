@@ -28,6 +28,10 @@ impl AsPath {
     pub fn asns(&self) -> &Vec<Asn> {
         &self.0
     }
+
+    pub fn into_asns(self) -> Vec<Asn> {
+        self.0
+    }
 }
 
 impl AsPath {
