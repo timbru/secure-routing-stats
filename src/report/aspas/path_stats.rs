@@ -139,7 +139,7 @@ impl AspaToProviderValidation {
             AspaToProviderValidation::NotCovered
         } else if pair_number == provider {
             AspaToProviderValidation::Valid
-        } else if not_provider > 1 {
+        } else if not_provider > 0 {
             AspaToProviderValidation::Invalid
         } else {
             AspaToProviderValidation::Unknown
