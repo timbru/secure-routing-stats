@@ -3,16 +3,23 @@ extern crate clap;
 extern crate derive_more;
 extern crate secure_routing_stats;
 
-use clap::App;
-use clap::Arg;
-use clap::SubCommand;
-use secure_routing_stats::report::resources::{self, ResourceReportOpts, ResourceReporter};
-use secure_routing_stats::report::world::{self, WorldStatsOpts, WorldStatsReporter};
-use secure_routing_stats::server;
-use secure_routing_stats::server::ServerOpts;
-use secure_routing_stats::server::StatsApp;
+use core::fmt;
 
-fn main() {
+use clap::{App, Arg, SubCommand};
+
+use secure_routing_stats::{
+    report::{
+        aspas::{AspaPathOpts, AspaPathResults, AspaStatOpts, SignedAspaStatsRegional},
+        roas::{
+            resources::{self, ResourceReportOpts, ResourceReporter},
+            world::{self, WorldStatsOpts, WorldStatsReporter},
+        },
+    },
+    server::{self, ServerOpts, StatsApp},
+};
+
+#[tokio::main]
+async fn main() {
     match Options::create() {
         Err(e) => {
             eprintln!("{}", e);
@@ -26,7 +33,18 @@ fn main() {
                 Options::ResourceStats(opts) => {
                     ResourceReporter::execute(&opts).map_err(Error::ResourceReportError)
                 }
-                Options::Daemon(opts) => StatsApp::run(&opts).map_err(Error::DaemonError),
+                Options::AspaStats(opts) => {
+                    let stats =
+                        SignedAspaStatsRegional::analyse(&opts.delegations, &opts.rpki_stats);
+                    println!("{stats}");
+                    Ok(())
+                }
+                Options::AspaPath(opts) => {
+                    let result = AspaPathResults::analyse(opts.paths, opts.rpki_stats);
+                    println!("{result}");
+                    Ok(())
+                }
+                Options::Daemon(opts) => StatsApp::run(&opts).await.map_err(Error::DaemonError),
             };
             match res {
                 Ok(()) => {}
@@ -42,17 +60,19 @@ fn main() {
 enum Options {
     WorldStats(WorldStatsOpts),
     ResourceStats(ResourceReportOpts),
+    AspaStats(AspaStatOpts),
+    AspaPath(AspaPathOpts),
     Daemon(ServerOpts),
 }
 
 impl Options {
     pub fn create() -> Result<Self, Error> {
-        let matches = App::new("NLnet Labs RRDP Server")
-            .version("0.1b")
-            .about("Analyse ROA quality vs BGP")
+        let matches = App::new("Secure Routing Stats")
+            .version("0.3.0")
+            .about("Analyse RPKI ROAs and ASPA vs BGP")
             .subcommand(
                 SubCommand::with_name("world")
-                    .about("Report ROA quality on a per country basis")
+                    .about("Report ROAs and ASPA on a per country basis")
                     .arg(
                         Arg::with_name("announcements")
                             .short("a")
@@ -63,11 +83,11 @@ impl Options {
                             .min_values(1),
                     )
                     .arg(
-                        Arg::with_name("vrps")
-                            .short("v")
-                            .long("vrps")
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
                             .value_name("FILE")
-                            .help("Validated ROAs Payloads CSV file.")
+                            .help("Validated RPKI stats in routinator style JSON.")
                             .required(true),
                     )
                     .arg(
@@ -100,11 +120,11 @@ impl Options {
                             .min_values(1),
                     )
                     .arg(
-                        Arg::with_name("vrps")
-                            .short("v")
-                            .long("vrps")
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
                             .value_name("FILE")
-                            .help("Validated ROAs Payloads CSV file.")
+                            .help("Validated RPKI stats in routinator style JSON.")
                             .required(true),
                     )
                     .arg(
@@ -133,6 +153,46 @@ impl Options {
                     ),
             )
             .subcommand(
+                SubCommand::with_name("aspa")
+                    .about("Report ASPA adoption")
+                    .arg(
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
+                            .value_name("FILE")
+                            .help("Validated RPKI stats in routinator style JSON.")
+                            .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("delegations")
+                            .short("d")
+                            .long("delegations")
+                            .value_name("FILE")
+                            .help("Delegation stats (NRO extended delegated stats format).")
+                            .required(true),
+                    ),
+            )
+            .subcommand(
+                SubCommand::with_name("aspa_path")
+                    .about("Report ASPA paths vs RIS paths")
+                    .arg(
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
+                            .value_name("FILE")
+                            .help("Validated RPKI stats in routinator style JSON.")
+                            .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("paths")
+                            .short("p")
+                            .long("paths")
+                            .value_name("FILE")
+                            .help("RIS paths from parguet file see ris_path.rs code for format!")
+                            .required(true),
+                    ),
+            )
+            .subcommand(
                 SubCommand::with_name("daemon")
                     .about("Run as an HTTP server")
                     .arg(
@@ -145,11 +205,11 @@ impl Options {
                             .min_values(1),
                     )
                     .arg(
-                        Arg::with_name("vrps")
-                            .short("v")
-                            .long("vrps")
+                        Arg::with_name("rpki")
+                            .short("r")
+                            .long("rpki")
                             .value_name("FILE")
-                            .help("Validated ROAs Payloads CSV file.")
+                            .help("Validated RPKI stats in routinator style JSON.")
                             .required(true),
                     )
                     .arg(
@@ -167,6 +227,14 @@ impl Options {
             Ok(Options::WorldStats(WorldStatsOpts::parse(matches)?))
         } else if let Some(matches) = matches.subcommand_matches("resources") {
             Ok(Options::ResourceStats(ResourceReportOpts::parse(matches)?))
+        } else if let Some(matches) = matches.subcommand_matches("aspa") {
+            Ok(Options::AspaStats(
+                AspaStatOpts::parse(matches).map_err(Error::msg)?,
+            ))
+        } else if let Some(matches) = matches.subcommand_matches("aspa_path") {
+            Ok(Options::AspaPath(
+                AspaPathOpts::parse(matches).map_err(Error::msg)?,
+            ))
         } else if let Some(matches) = matches.subcommand_matches("daemon") {
             Ok(Options::Daemon(ServerOpts::parse(matches)?))
         } else {
@@ -193,7 +261,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn msg(s: &str) -> Self {
+    pub fn msg(s: impl fmt::Display) -> Self {
         Error::WithMessage(s.to_string())
     }
 }

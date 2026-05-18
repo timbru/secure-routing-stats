@@ -1,53 +1,57 @@
 //! Run the stats as an HTTP daemon
-
-use crate::announcements::Announcements;
-use crate::vrps::Vrps;
-use actix_web::http::Method;
-use actix_web::http::StatusCode;
-use actix_web::pred;
-use actix_web::server;
-use actix_web::App;
-use actix_web::HttpResponse;
-use announcements;
-use clap::ArgMatches;
-use delegations;
-use delegations::IpDelegations;
-use report::resources::ResourceReporter;
-use report::world::WorldStatsReporter;
-use report::ScopeLimits;
-use serde::Serialize;
-use std::net::IpAddr;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
-use vrps;
 
-const NOT_FOUND: &[u8] = include_bytes!("../ui/not_found.html");
+use axum::extract::Query;
+use axum::extract::State;
+use axum::response::Redirect;
+use axum::{Router, response::Json, routing::get};
+
+use tower_http::services::ServeDir;
+
+use clap::ArgMatches;
+
+use crate::inputs::delegations::AsnDelegations;
+use crate::report::aspas::SignedAspaStatsRegional;
+use crate::{
+    inputs::{
+        announcements::{self, Announcements},
+        delegations::{self, IpDelegations},
+        rpki_stats::{self, RpkiStats},
+    },
+    report::{
+        roas::{
+            resources::{ResourceReportResult, ResourceReporter},
+            world::{CountryStats, WorldStatsReporter},
+        },
+        scope::{ScopeLimits, ScopeQuery},
+    },
+};
 
 pub struct ServerOpts {
     announcements: Vec<PathBuf>,
-    vrps: PathBuf,
-    dels: PathBuf,
+    rpki_stats: PathBuf,
+    delegations: PathBuf,
 }
 
 impl ServerOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
         let mut announcements = vec![];
-        for name in matches.values_of("announcements").unwrap().into_iter() {
+        for name in matches.values_of("announcements").unwrap() {
             announcements.push(PathBuf::from(name))
         }
 
-        let vrps_file = matches.value_of("vrps").unwrap();
-        let vrps = PathBuf::from(vrps_file);
+        let rpki_stats_file = matches.value_of("rpki").unwrap();
+        let rpki_stats = PathBuf::from(rpki_stats_file);
 
-        let dels_file = matches.value_of("delegations").unwrap();
-        let dels = PathBuf::from(dels_file);
+        let delegations_file = matches.value_of("delegations").unwrap();
+        let delegations = PathBuf::from(delegations_file);
 
         Ok(ServerOpts {
             announcements,
-            vrps,
-            dels,
+            rpki_stats,
+            delegations,
         })
     }
 }
@@ -55,8 +59,9 @@ impl ServerOpts {
 #[derive(Debug)]
 pub struct Sources {
     announcements: Announcements,
-    vrps: Vrps,
+    rpki_stats: RpkiStats,
     delegations: IpDelegations,
+    asn_delegations: AsnDelegations,
 }
 
 #[derive(Debug)]
@@ -67,173 +72,105 @@ pub struct StatsServer {
 impl StatsServer {
     fn create(opts: &ServerOpts) -> Result<Self, Error> {
         let announcements = Announcements::from_ris(&opts.announcements)?;
-        let vrps = Vrps::from_file(&opts.vrps)?;
-        let delegations = IpDelegations::from_file(&opts.dels)?;
+        let rpki_stats = RpkiStats::from_routinator_file(&opts.rpki_stats)?;
+        let delegations = IpDelegations::from_file(&opts.delegations)?;
+        let asn_delegations = AsnDelegations::from_file(&opts.delegations)?;
 
         let sources = Sources {
             announcements,
-            vrps,
+            rpki_stats,
             delegations,
+            asn_delegations,
         };
 
         Ok(StatsServer { sources })
     }
 }
 
-pub struct StatsApp(App<Arc<StatsServer>>);
+pub struct StatsApp();
 
 impl StatsApp {
-    pub fn new(server: Arc<StatsServer>) -> Self {
-        let app = App::with_state(server)
-            .resource("/", |r| {
-                r.method(Method::GET).f(|_r| {
-                    HttpResponse::Found()
-                        .header("location", "/ui/world.html")
-                        .finish()
-                })
-            })
-            .resource("/rpki-stats-api/details", |r| {
-                r.method(Method::GET).f(Self::details);
-            })
-            .resource("/rpki-stats-api/world.json", |r| {
-                r.method(Method::GET).f(Self::world_json);
-            })
-            .resource("/rpki-stats-api/world.csv", |r| {
-                r.method(Method::GET).f(Self::world_csv);
-            })
-            .default_resource(|r| {
-                // 404 for GET request
-                r.method(Method::GET).f(Self::p404);
+    pub async fn run(opts: &ServerOpts) -> Result<(), Error> {
+        let state = Arc::new(StatsServer::create(opts)?);
 
-                // all requests that are not `GET`
-                r.route()
-                    .filter(pred::Not(pred::Get()))
-                    .f(|_req| HttpResponse::MethodNotAllowed());
-            });
+        let app = Router::new()
+            .route("/", get(|| async { Redirect::temporary("/ui/world.html") }))
+            .nest_service("/ui", ServeDir::new("ui"))
+            .route(
+                "/rpki-stats-api/details",
+                get(Self::details).with_state(state.clone()),
+            )
+            .route(
+                "/rpki-stats-api/world.csv",
+                get({
+                    let state = Arc::clone(&state);
+                    move || Self::world_csv(state)
+                }),
+            )
+            .route(
+                "/rpki-stats-api/world-aspas.csv",
+                get({
+                    let state = Arc::clone(&state);
+                    move || Self::world_aspas(state)
+                }),
+            )
+            .route(
+                "/rpki-stats-api/world.json",
+                get({
+                    let state = Arc::clone(&state);
+                    move || Self::world_json(state)
+                }),
+            );
 
-        let app = with_statics(app);
-
-        StatsApp(app)
-    }
-
-    pub fn run(opts: &ServerOpts) -> Result<(), Error> {
-        let stats_server = Arc::new(StatsServer::create(opts)?);
-
-        let server = server::new(move || Self::new(stats_server.clone()));
-
-        let address = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 8080);
-
-        server
-            .bind(address)
-            .unwrap_or_else(|_| panic!("Cannot bind to: {}", address))
-            .shutdown_timeout(0)
-            .run();
+        // run our app with hyper, listening globally on port 3000
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+            .await
+            .unwrap();
+        axum::serve(listener, app).await.unwrap();
 
         Ok(())
     }
 
-    fn p404(_req: &HttpRequest) -> HttpResponse {
-        HttpResponse::build(StatusCode::NOT_FOUND).body(NOT_FOUND)
+    async fn details(
+        State(state): State<Arc<StatsServer>>,
+        scope_string: Query<ScopeQuery>,
+    ) -> Json<ResourceReportResult> {
+        let limits = ScopeLimits::from_str(&scope_string.scope).unwrap_or(ScopeLimits::empty());
+
+        let reporter = ResourceReporter::new(
+            &state.sources.announcements,
+            state.sources.rpki_stats.vrps(),
+        );
+
+        Json(reporter.analyse(&limits))
     }
 
-    fn details(req: &HttpRequest) -> HttpResponse {
-        let server: &Arc<StatsServer> = req.state();
-
-        let limits = match req.query().get("scope") {
-            None => ScopeLimits::empty(),
-            Some(scope_str) => match ScopeLimits::from_str(scope_str) {
-                Ok(scope) => scope,
-                Err(_) => return Self::user_error("Can't parse scope"),
-            },
-        };
-
-        let reporter = ResourceReporter::new(&server.sources.announcements, &server.sources.vrps);
-
-        let stats = reporter.analyse(&limits);
-
-        Self::render_json(&stats)
-    }
-
-    fn world_json(req: &HttpRequest) -> HttpResponse {
-        let server: &Arc<StatsServer> = req.state();
+    async fn world_json(state: Arc<StatsServer>) -> Json<CountryStats> {
         let reporter = WorldStatsReporter::new(
-            &server.sources.announcements,
-            &server.sources.vrps,
-            &server.sources.delegations,
+            &state.sources.announcements,
+            &state.sources.rpki_stats,
+            &state.sources.delegations,
+        );
+
+        Json(reporter.analyse())
+    }
+
+    async fn world_csv(state: Arc<StatsServer>) -> String {
+        let reporter = WorldStatsReporter::new(
+            &state.sources.announcements,
+            &state.sources.rpki_stats,
+            &state.sources.delegations,
         );
 
         let stats = reporter.analyse();
 
-        Self::render_json(&stats)
+        stats.to_csv()
     }
 
-    fn world_csv(req: &HttpRequest) -> HttpResponse {
-        let server: &Arc<StatsServer> = req.state();
-        let reporter = WorldStatsReporter::new(
-            &server.sources.announcements,
-            &server.sources.vrps,
-            &server.sources.delegations,
-        );
-
-        let stats = reporter.analyse();
-        let csv = stats.to_csv();
-
-        HttpResponse::Ok().content_type("text/csv").body(csv)
+    async fn world_aspas(state: Arc<StatsServer>) -> String {
+        SignedAspaStatsRegional::analyse(&state.sources.asn_delegations, &state.sources.rpki_stats)
+            .to_csv()
     }
-
-    fn render_json<O: Serialize>(obj: &O) -> HttpResponse {
-        match serde_json::to_string(obj) {
-            Ok(json) => HttpResponse::Ok()
-                .content_type("application/json")
-                .body(json),
-            Err(_) => Self::server_error(),
-        }
-    }
-
-    fn server_error() -> HttpResponse {
-        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("I'm sorry Dave, I'm afraid I can't do that.")
-    }
-
-    fn user_error(msg: &str) -> HttpResponse {
-        HttpResponse::build(StatusCode::BAD_REQUEST).body(msg.to_string())
-    }
-}
-
-//------------ IntoHttpHandler -----------------------------------------------
-
-impl server::IntoHttpHandler for StatsApp {
-    type Handler = <App<Arc<StatsServer>> as server::IntoHttpHandler>::Handler;
-
-    fn into_handler(self) -> Self::Handler {
-        self.0.into_handler()
-    }
-}
-
-//------------ HttpRequest ---------------------------------------------------
-
-pub type HttpRequest = actix_web::HttpRequest<Arc<StatsServer>>;
-
-//------------ Definition of Statics for UI content --------------------------
-
-static HTML: &[u8] = b"text/html";
-static CSS: &[u8] = b"text/css";
-static JS: &[u8] = b"application/javascript";
-static JSON: &[u8] = b"application/json";
-
-fn with_statics<S: 'static>(app: App<S>) -> App<S> {
-    statics!(app,
-        "world.html" => HTML,
-        "css/bootstrap.min.css" => CSS,
-        "css/d3.geomap.css" => CSS,
-        "js/axios.min.js" => JS,
-        "js/bootstrap.min.js" => JS,
-        "js/d3.geomap.dependencies.min.js" => JS,
-        "js/d3.geomap.min.js" => JS,
-        "js/jquery-3.3.1.min.js" => JS,
-        "js/vue.min.js" => JS,
-        "json/countries_with_iso2.json" => JSON,
-    )
 }
 
 //------------ Error --------------------------------------------------------
@@ -244,7 +181,7 @@ pub enum Error {
     AnnouncementsError(announcements::Error),
 
     #[display(fmt = "{}", _0)]
-    VrpsError(vrps::Error),
+    RpkiStatsError(rpki_stats::Error),
 
     #[display(fmt = "{}", _0)]
     DelegationsError(delegations::Error),
@@ -265,9 +202,9 @@ impl From<announcements::Error> for Error {
     }
 }
 
-impl From<vrps::Error> for Error {
-    fn from(e: vrps::Error) -> Self {
-        Error::VrpsError(e)
+impl From<rpki_stats::Error> for Error {
+    fn from(e: rpki_stats::Error) -> Self {
+        Error::RpkiStatsError(e)
     }
 }
 
@@ -278,9 +215,3 @@ impl From<delegations::Error> for Error {
 }
 
 impl std::error::Error for Error {}
-
-impl actix_web::ResponseError for Error {
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR).body(format!("{}", self))
-    }
-}
