@@ -20,8 +20,9 @@ use crate::{
 #[derive(Debug)]
 pub struct AspaPathResults {
     /// Total number of paths observed
-    total_paths: usize,
-    total_paths_to_no_provider: usize,
+    paths: usize,
+    paths_no_provider: usize,
+    unique_paths_no_provider: usize,
 
     invalid: usize,
     valid: usize,
@@ -34,27 +35,47 @@ impl AspaPathResults {
         let aspas = rpki_stats.aspas();
 
         let total_paths = paths.len();
+        eprintln!("Starting to analyse {total_paths} paths");
 
         let paths_to_no_provider = paths.segments_to_provider_free(aspas);
-        let total_paths_to_no_provider = paths_to_no_provider.len();
+        let paths_no_provider = paths_to_no_provider.len();
+
+        eprintln!("Processing {paths_no_provider} paths to a provider free network");
+
+        let unique_paths: HashSet<Vec<AsPair>> = paths_to_no_provider
+            .into_iter()
+            .map(|route| AsPair::get_up_ramp_pairs(route))
+            .collect();
+
+        let unique_paths_no_provider = unique_paths.len();
+
+        eprintln!("Found {unique_paths_no_provider} unique paths ");
 
         let mut invalid = 0;
         let mut valid = 0;
         let mut unknown = 0;
         let mut not_covered = 0;
 
-        for path in paths_to_no_provider {
-            match AspaToProviderValidation::analyse_as_upramp(&path, aspas) {
+        let mut done = 0;
+        for pairs in unique_paths {
+            match AspaToProviderValidation::analyse_as_upramp(pairs, aspas) {
                 AspaToProviderValidation::Invalid => invalid += 1,
                 AspaToProviderValidation::Valid => valid += 1,
                 AspaToProviderValidation::Unknown => unknown += 1,
                 AspaToProviderValidation::NotCovered => not_covered += 1,
             }
+            done += 1;
+            if done % 100000 == 0 {
+                eprint!("...{done} ")
+            }
         }
+        eprintln!("done");
+        eprintln!();
 
         Self {
-            total_paths,
-            total_paths_to_no_provider,
+            paths: total_paths,
+            paths_no_provider,
+            unique_paths_no_provider,
             invalid,
             valid,
             unknown,
@@ -65,8 +86,9 @@ impl AspaPathResults {
 
 impl fmt::Display for AspaPathResults {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "all paths:         {}", self.total_paths)?;
-        writeln!(f, "paths no provider: {}", self.total_paths_to_no_provider)?;
+        writeln!(f, "all paths:         {}", self.paths)?;
+        writeln!(f, "paths no provider: {}", self.paths_no_provider)?;
+        writeln!(f, "          -unique: {}", self.unique_paths_no_provider)?;
         writeln!(f, "valid:             {}", self.valid)?;
         writeln!(f, "invalid:           {}", self.invalid)?;
         writeln!(f, "unknown (covered): {}", self.unknown)?;
@@ -99,9 +121,7 @@ impl AspaToProviderValidation {
     /// Analyses the given path, assuming that it is an upramp, as
     /// one would expect for path segments leading up to and including
     /// the first AS seen from the right that issued an AS0 ASPA.
-    pub fn analyse_as_upramp(path: &AsPath, aspas: &HashMap<Asn, HashSet<Asn>>) -> Self {
-        let pairs = AsPair::get_as_pairs(path);
-
+    pub fn analyse_as_upramp(pairs: Vec<AsPair>, aspas: &HashMap<Asn, HashSet<Asn>>) -> Self {
         let pair_number = pairs.len();
         let mut no_attestation = 0;
         let mut provider = 0;
@@ -127,7 +147,7 @@ impl AspaToProviderValidation {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub struct AsPair {
     from: Asn,
     to: Asn,
@@ -135,20 +155,23 @@ pub struct AsPair {
 
 impl AsPair {
     /// Looks at an AS path with the origin on the right as per convention
-    /// in BGP and returns a sorted vec of AS pairs sorted from the origin
-    /// to the left-most provider.
+    /// in BGP and returns a sorted vec of AS pairs for ASPA verification
+    /// sorted from the origin to the left-most provider. Occurences of
+    /// repeated ASes in the path (as is used for traffic engineering) are
+    /// excluded.
     ///
     /// This vec is empty if the given AS path is empty, or if it contains
     /// only 1 AS.
-    pub fn get_as_pairs(path: &AsPath) -> Vec<AsPair> {
+    pub fn get_up_ramp_pairs(path: AsPath) -> Vec<AsPair> {
         // We do this by
         // - iterating through the path from right to left
         // - get tuples of the right and left asn
         // - and creating pairs from those
-        path.asns()
+        path.into_asns()
             .iter()
             .rev()
             .tuple_windows()
+            .filter(|(from, to)| from != to)
             .map(|(from, to)| AsPair {
                 from: *from,
                 to: *to,
@@ -225,8 +248,8 @@ mod tests {
 
     #[test]
     fn should_get_as_pairs() {
-        let as_path = AsPath::new(vec![1.into(), 2.into(), 3.into()]);
-        let pairs = AsPair::get_as_pairs(&as_path);
+        let as_path = AsPath::new(vec![1.into(), 2.into(), 2.into(), 3.into()]);
+        let pairs = AsPair::get_up_ramp_pairs(as_path);
         assert_eq!(
             pairs,
             vec![
