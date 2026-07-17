@@ -15,6 +15,12 @@ pub struct Asn {
     val: u32,
 }
 
+impl Asn {
+    pub fn number_string(&self) -> String {
+        self.val.to_string()
+    }
+}
+
 impl Ord for Asn {
     fn cmp(&self, other: &Self) -> Ordering {
         self.val.cmp(&other.val)

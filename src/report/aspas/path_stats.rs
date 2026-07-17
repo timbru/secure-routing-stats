@@ -2,6 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     fmt,
     path::PathBuf,
+    str::FromStr,
 };
 
 use clap::ArgMatches;
@@ -15,6 +16,94 @@ use crate::{
         rpki_stats::RpkiStats,
     },
 };
+//------------ AspaPathResults ----------------------------------------------
+
+#[derive(Debug)]
+pub struct CustomersAspaResults(HashMap<Asn, ProvidersAspaResults>);
+
+impl CustomersAspaResults {
+    pub fn analyse(paths: &HashSet<Vec<AsPair>>, aspas: &HashMap<Asn, HashSet<Asn>>) -> Self {
+        let mut results = HashMap::new();
+
+        for path in paths {
+            for pair in path {
+                let customer = results.entry(pair.from).or_insert_with(|| {
+                    let aspa_providers = aspas.get(&pair.from).cloned().unwrap_or_default();
+                    let path_providers = HashSet::new();
+                    ProvidersAspaResults {
+                        seen_in_aspa: aspa_providers,
+                        seen_in_paths: path_providers,
+                    }
+                });
+
+                customer.seen_in_paths.insert(pair.to);
+            }
+        }
+
+        CustomersAspaResults(results)
+    }
+}
+
+impl fmt::Display for CustomersAspaResults {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn print(providers: &HashSet<Asn>) -> String {
+            providers.iter().map(|asn| asn.to_string()).join(", ")
+        }
+
+        writeln!(f, "AS Pairs Analysis")?;
+        writeln!(f, "")?;
+        for (customer, providers) in &self.0 {
+            writeln!(f)?;
+            writeln!(f, "  Customer:           {}", customer)?;
+            writeln!(
+                f,
+                "  Providers in paths: {}",
+                print(&providers.seen_in_paths)
+            )?;
+            writeln!(
+                f,
+                "  Providers in ASPA:  {}",
+                print(&providers.seen_in_aspa)
+            )?;
+            writeln!(
+                f,
+                "  Not Provider:       {}",
+                print(&providers.not_providers())
+            )?;
+            writeln!(f, "  In ASPA, not seen: {}", print(&providers.not_seen()))?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ProvidersAspaResults {
+    /// The providers seen in ASPA
+    seen_in_aspa: HashSet<Asn>,
+
+    /// The providers seen in BGP
+    seen_in_paths: HashSet<Asn>,
+}
+
+impl ProvidersAspaResults {
+    /// Returns the providers found in ASPA not seen in paths
+    pub fn not_seen(&self) -> HashSet<Asn> {
+        self.seen_in_aspa
+            .iter()
+            .filter(|asn| !self.seen_in_paths.contains(*asn))
+            .cloned()
+            .collect()
+    }
+
+    /// Returns the providers found in path not authorized in ASPA
+    pub fn not_providers(&self) -> HashSet<Asn> {
+        self.seen_in_paths
+            .iter()
+            .filter(|asn| self.seen_in_aspa.is_empty() || !self.seen_in_aspa.contains(*asn))
+            .cloned()
+            .collect()
+    }
+}
 
 //------------ AspaPathResults ----------------------------------------------
 #[derive(Debug)]
@@ -28,19 +117,25 @@ pub struct AspaPathResults {
     valid: usize,
     unknown: usize,
     not_covered: usize,
+
+    // Detailed analysis
+    report_for_asn: Option<CustomersAspaResults>,
 }
 
 impl AspaPathResults {
-    pub fn analyse(paths: AsPathsSeen, rpki_stats: RpkiStats) -> Self {
+    pub fn analyse(paths: AsPathsSeen, rpki_stats: RpkiStats, asn_opt: Option<Asn>) -> Self {
         let aspas = rpki_stats.aspas();
 
         let total_paths = paths.len();
         eprintln!("Starting to analyse {total_paths} paths");
 
-        let paths_to_no_provider = paths.segments_to_provider_free(aspas);
-        let paths_no_provider = paths_to_no_provider.len();
+        let mut paths_to_no_provider = paths.segments_to_provider_free(aspas);
+        if let Some(asn) = asn_opt {
+            paths_to_no_provider.retain(|path| path.contains(&asn));
+        }
 
-        eprintln!("Processing {paths_no_provider} paths to a provider free network");
+        let nr_paths_no_provider = paths_to_no_provider.len();
+        eprintln!("Processing {nr_paths_no_provider} paths to a provider free network");
 
         let unique_paths: HashSet<Vec<AsPair>> = paths_to_no_provider
             .into_iter()
@@ -51,6 +146,9 @@ impl AspaPathResults {
 
         eprintln!("Found {unique_paths_no_provider} unique paths ");
 
+        let report_for_asn =
+            asn_opt.map(|_asn| CustomersAspaResults::analyse(&unique_paths, aspas));
+
         let mut invalid = 0;
         let mut valid = 0;
         let mut unknown = 0;
@@ -58,11 +156,11 @@ impl AspaPathResults {
 
         let mut done = 0;
         for pairs in unique_paths {
-            match AspaToProviderValidation::analyse_as_upramp(pairs, aspas) {
-                AspaToProviderValidation::Invalid => invalid += 1,
-                AspaToProviderValidation::Valid => valid += 1,
-                AspaToProviderValidation::Unknown => unknown += 1,
-                AspaToProviderValidation::NotCovered => not_covered += 1,
+            match AspaPathValidationResult::analyse_as_upramp(pairs, aspas) {
+                AspaPathValidationResult::Invalid => invalid += 1,
+                AspaPathValidationResult::Valid => valid += 1,
+                AspaPathValidationResult::Unknown => unknown += 1,
+                AspaPathValidationResult::NotCovered => not_covered += 1,
             }
             done += 1;
             if done % 100000 == 0 {
@@ -74,12 +172,13 @@ impl AspaPathResults {
 
         Self {
             paths: total_paths,
-            paths_no_provider,
+            paths_no_provider: nr_paths_no_provider,
             unique_paths_no_provider,
             invalid,
             valid,
             unknown,
             not_covered,
+            report_for_asn,
         }
     }
 }
@@ -93,14 +192,19 @@ impl fmt::Display for AspaPathResults {
         writeln!(f, "invalid:           {}", self.invalid)?;
         writeln!(f, "unknown (covered): {}", self.unknown)?;
         writeln!(f, "not covered:       {}", self.not_covered)?;
+
+        if let Some(asn_report) = &self.report_for_asn {
+            writeln!(f, "{}", asn_report)?;
+        }
+
         Ok(())
     }
 }
 
-//------------ AspaPathValidation -------------------------------------------
+//------------ AspaPathValidationResult -------------------------------------
 
-/// Result of validation of a path segment from customers to provider.
-enum AspaToProviderValidation {
+/// Result of validation of an ASPA path (or segment)
+enum AspaPathValidationResult {
     /// None of the AS hops leading up to the leftmost provider
     /// are covered by ASPA
     NotCovered,
@@ -117,7 +221,7 @@ enum AspaToProviderValidation {
     Unknown,
 }
 
-impl AspaToProviderValidation {
+impl AspaPathValidationResult {
     /// Analyses the given path, assuming that it is an upramp, as
     /// one would expect for path segments leading up to and including
     /// the first AS seen from the right that issued an AS0 ASPA.
@@ -136,18 +240,18 @@ impl AspaToProviderValidation {
         }
 
         if no_attestation == pair_number {
-            AspaToProviderValidation::NotCovered
+            AspaPathValidationResult::NotCovered
         } else if pair_number == provider {
-            AspaToProviderValidation::Valid
+            AspaPathValidationResult::Valid
         } else if not_provider > 0 {
-            AspaToProviderValidation::Invalid
+            AspaPathValidationResult::Invalid
         } else {
-            AspaToProviderValidation::Unknown
+            AspaPathValidationResult::Unknown
         }
     }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct AsPair {
     from: Asn,
     to: Asn,
@@ -205,23 +309,39 @@ pub enum AsPairProviderResult {
 pub struct AspaPathOpts {
     pub rpki_stats: RpkiStats,
     pub paths: AsPathsSeen,
+    pub asn_opt: Option<Asn>,
 }
 
 impl AspaPathOpts {
     pub fn parse(matches: &ArgMatches) -> Result<Self, Error> {
         let rpki_stats_file = matches.value_of("rpki").unwrap();
         let paths_file = matches.value_of("paths").unwrap();
+        let asn_opt = match matches.value_of("asn") {
+            Some(asn_str) => Some(
+                Asn::from_str(asn_str)
+                    .map_err(|_| Error::msg(format!("invalid ASN: {}", asn_str)))?,
+            ),
+            None => None,
+        };
 
-        Self::from_files(rpki_stats_file, paths_file)
+        Self::from_files(rpki_stats_file, paths_file, asn_opt)
     }
 
-    pub fn from_files(rpki_stats_file: &str, paths_file: &str) -> Result<Self, Error> {
+    pub fn from_files(
+        rpki_stats_file: &str,
+        paths_file: &str,
+        asn_opt: Option<Asn>,
+    ) -> Result<Self, Error> {
         let rpki_stats =
             RpkiStats::from_routinator_file(&PathBuf::from(rpki_stats_file)).map_err(Error::msg)?;
 
         let paths = AsPathsSeen::from_ris_psv_file(&PathBuf::from(paths_file))?;
 
-        Ok(Self { rpki_stats, paths })
+        Ok(Self {
+            rpki_stats,
+            paths,
+            asn_opt,
+        })
     }
 }
 
@@ -238,10 +358,11 @@ mod tests {
         let opts = AspaPathOpts::from_files(
             "test/ris-routes/routinator-short-for-routes.json",
             "test/ris-routes/ris-routes-short.psv",
+            None,
         )
         .unwrap();
 
-        let results = AspaPathResults::analyse(opts.paths, opts.rpki_stats);
+        let results = AspaPathResults::analyse(opts.paths, opts.rpki_stats, None);
 
         println!("{:?}", results)
     }
