@@ -195,16 +195,37 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <script type="text/javascript">
     var rpkiWorldCache = null;
 
+    var rpkiWarningColors = [
+      '#ffffff', '#ffffcc', '#ffeda0', '#fed976', '#feb24c',
+      '#fd8d3c', '#fc4e2a', '#e31a1c', '#bd0026', '#800026'
+    ];
+
+    var rpkiCoverageColors = [
+      '#f7fcf5', '#e5f5e0', '#c7e9c0', '#a1d99b', '#74c476',
+      '#41ab5d', '#32a153', '#238b45', '#006d2c', '#00441b'
+    ];
+
+    var rpkiMapColors = function (column) {
+      if (column === 'too_permissive' || column === 'unseen') {
+        return rpkiWarningColors;
+      }
+      return rpkiCoverageColors;
+    };
+
     var rpkiCreateMap = function (column) {
       d3.select('#map').select('svg').remove();
       var map = d3.geomap.choropleth()
         .geofile('/ui/json/countries_with_iso2.json')
-        .colors(colorbrewer.Greens[9])
+        .colors(rpkiMapColors(column))
         .column(column)
+        .domain([0, 100])
         .format(function (d) {
           return d3.format(',.1f')(d) + '%';
         })
-        .legend(true)
+        .legend({
+          width: document.querySelector('#map').clientWidth / 10,
+          height: document.querySelector('#map').clientWidth / 1.92
+        })
         .unitId('iso2');
 
       if (!rpkiWorldCache) {
@@ -271,7 +292,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
           }
         },
         updateMap: function () {
-          this.map.column(this.mapColumn).update();
+          this.map
+            .colors(rpkiMapColors(this.mapColumn))
+            .column(this.mapColumn)
+            .update();
         },
         showRawResults: function () {
           this.modalTitle = this.scope + ' raw results';
