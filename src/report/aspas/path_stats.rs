@@ -166,6 +166,10 @@ impl AspaPathResults {
             if done % 100000 == 0 {
                 eprint!("...{done} ")
             }
+            done += 1;
+            if done % 100000 == 0 {
+                eprint!("...{done} ")
+            }
         }
         eprintln!("done");
         eprintln!();
