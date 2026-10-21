@@ -40,7 +40,8 @@ async fn main() {
                     Ok(())
                 }
                 Options::AspaPath(opts) => {
-                    let result = AspaPathResults::analyse(opts.paths, opts.rpki_stats);
+                    let result =
+                        AspaPathResults::analyse(opts.paths, opts.rpki_stats, opts.asn_opt);
                     println!("{result}");
                     Ok(())
                 }
@@ -190,6 +191,14 @@ impl Options {
                             .value_name("FILE")
                             .help("RIS paths from parguet file see ris_path.rs code for format!")
                             .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("asn")
+                            .short("a")
+                            .long("asn")
+                            .value_name("ASN")
+                            .help("Print more details for paths including the given ASN")
+                            .required(false),
                     ),
             )
             .subcommand(

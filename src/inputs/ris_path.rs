@@ -32,6 +32,10 @@ impl AsPath {
     pub fn into_asns(self) -> Vec<Asn> {
         self.0
     }
+
+    pub fn contains(&self, asn: &Asn) -> bool {
+        self.0.contains(asn)
+    }
 }
 
 impl AsPath {
